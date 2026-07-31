@@ -98,6 +98,47 @@ TermServMultiScreen.exe --profile "BN" --screens 1,2 --connect
 ---
 
 
+## Signature des fichiers .rdp
+
+Chaque `.rdp` généré est signé par `rdpsign.exe` avec le certificat **CN=FlowDesk RDP Publisher**
+(auto-signé, 10 ans, RSA 3072, EKU Code Signing), conservé dans `CurrentUser\My` avec sa clé privée
+CNG persistante. Le pipeline est strict :
+
+```
+générer → écrire → fermer → rdpsign /l (test) → rdpsign (réel)
+        → vérifier signscope + signature → vérifier que le fichier n'a pas changé → mstsc
+```
+
+**Si la signature échoue, mstsc n'est pas lancé** : l'application affiche l'erreur et journalise le
+diagnostic. Rien n'est modifié dans le fichier après signature (contrôle par empreinte SHA-256).
+
+Deux pièges, tous deux vérifiés sur cette machine :
+
+- **L'option de `rdpsign` nomme l'algorithme de signature du fichier, pas le format de l'empreinte
+  du certificat.** Sur Windows 26200, `/sha1` a disparu et seul `/sha256` existe — mais la valeur
+  attendue reste l'**empreinte SHA-1** du certificat (`Thumbprint`). Lui passer le SHA-256 donne
+  `0x80092004 CRYPT_E_NOT_FOUND`. L'application auto-calibre la bonne combinaison au démarrage avec
+  `/l`, qui teste sans modifier le fichier : elle fonctionne donc aussi sur les builds à `/sha1`.
+- **Faire disparaître l'avertissement d'éditeur exige la stratégie Windows**
+  « Spécifier les empreintes numériques des certificats représentant des éditeurs .rdp approuvés »
+  (`TrustedCertThumbprints`). Le magasin *Éditeurs approuvés* ne suffit pas. Cette clé de registre
+  est en lecture seule pour les comptes standard, par conception : une élévation administrateur
+  unique est nécessaire. Paramètres › **Confiance des fichiers .rdp** › *Déclarer l'éditeur*
+  génère et lance le script correspondant, qui n'ajoute que l'empreinte FlowDesk et ne désactive
+  aucune protection.
+
+Sur les builds de juillet 2026 et suivantes, l'entrée est préfixée : `sha256:<empreinte>`. Sans
+préfixe, Windows la lit comme une empreinte SHA-1 héritée. Le format retenu est déduit de
+`TerminalServer.admx` de la machine, pas supposé.
+
+Diagnostic complet (25 contrôles) : Paramètres › Confiance des fichiers .rdp › *Diagnostic*, ou
+
+```bash
+TermServMultiScreen.exe --rdptrust
+```
+
+---
+
 ## Où sont les fichiers
 
 | Quoi | Où |
@@ -105,6 +146,7 @@ TermServMultiScreen.exe --profile "BN" --screens 1,2 --connect
 | Connexions enregistrées | `%LOCALAPPDATA%\TermServMultiScreen\config.json` |
 | Fichiers `.rdp` générés | `%LOCALAPPDATA%\TermServMultiScreen\sessions\` |
 | Journal | `%LOCALAPPDATA%\TermServMultiScreen\journal.log` |
+| Script d'approbation de l'éditeur | `%LOCALAPPDATA%\TermServMultiScreen\FlowDesk-EditeurApprouve.ps1` |
 
 ---
 
@@ -114,8 +156,15 @@ TermServMultiScreen.exe --profile "BN" --screens 1,2 --connect
 app\
   Core\          logique sans interface : écrans, fichiers .rdp, configuration, journal
     MonitorInfo.cs      énumération Win32 et les trois numérotations
-    RdpFile.cs          fabrication et import des .rdp, lancement de mstsc
+    RdpFile.cs          fabrication et import des .rdp
     AppConfig.cs        connexions enregistrées (System.Text.Json)
+    Rdp\                signature et confiance des .rdp
+      RdpCertificateService.cs    certificat FlowDesk, clé persistante, confiance locale
+      RdpSigningService.cs        rdpsign.exe, auto-calibrage, vérification du résultat
+      RdpPublisherTrustService.cs stratégie TrustedCertThumbprints et provisionnement élevé
+      RdpLauncher.cs              pipeline strict : pas de signature = pas de mstsc
+      RdpTrust.cs                 orchestration et état affiché dans l'interface
+      RdpTrustDiagnostics.cs      25 contrôles réels, PASS / FAIL / WARNING
   Services\      composition, surveillance des écrans, dialogues, pastilles d'identification
   ViewModels\    MVVM (CommunityToolkit.Mvvm)
   Pages\         Accueil, Connexions, Sessions, Paramètres, À propos

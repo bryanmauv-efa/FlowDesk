@@ -40,7 +40,8 @@ public sealed class CommandLine
             ? value : fallback;
 
     /// <summary>Vrai si la ligne de commande demande une action sans interface.</summary>
-    public bool IsHeadless => Has("connect") || Has("identify") || Has("list") || Has("print");
+    public bool IsHeadless =>
+        Has("connect") || Has("identify") || Has("list") || Has("print") || Has("rdptrust") || Has("resign");
 
     public static string Usage =>
         """
@@ -55,6 +56,8 @@ public sealed class CommandLine
           --all               tous les écrans
           --identify [sec]    affiche un grand numéro sur chaque écran
           --list              rapport de diagnostic des écrans
+          --rdptrust          diagnostic complet de la signature et de la confiance .rdp
+          --resign            régénère et resigne le .rdp de chaque connexion enregistrée
           --print             affiche le fichier .rdp qui serait utilisé
           --out <fichier>     écrit la sortie texte dans un fichier
 

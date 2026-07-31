@@ -97,6 +97,63 @@
             <TextBlock
                 Margin="0,16,0,4"
                 Style="{StaticResource CardTitleStyle}"
+                Text="Confiance des fichiers .rdp" />
+
+            <toolkit:SettingsExpander
+                Description="{x:Bind ViewModel.RdpCertificateDetail, Mode=OneWay}"
+                Header="Signature des connexions générées"
+                IsExpanded="True">
+                <toolkit:SettingsExpander.HeaderIcon>
+                    <FontIcon Glyph="&#xE72E;" />
+                </toolkit:SettingsExpander.HeaderIcon>
+                <Button Command="{x:Bind ViewModel.RefreshRdpTrustCommand}" Content="Actualiser" />
+                <toolkit:SettingsExpander.Items>
+                    <toolkit:SettingsCard Description="{x:Bind ViewModel.RdpSignatureState, Mode=OneWay}" Header="Signature rdpsign">
+                        <Button Command="{x:Bind ViewModel.RdpDiagnosticsCommand}" Content="Diagnostic complet" />
+                    </toolkit:SettingsCard>
+                    <toolkit:SettingsCard Description="{x:Bind ViewModel.RdpPublisherState, Mode=OneWay}" Header="Éditeur .rdp approuvé">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Command="{x:Bind ViewModel.ShowProvisioningScriptCommand}" Content="Voir le script" />
+                            <Button
+                                Command="{x:Bind ViewModel.ProvisionPublisherTrustCommand}"
+                                Content="Déclarer l'éditeur…"
+                                IsEnabled="{x:Bind ViewModel.RdpNeedsProvisioning, Mode=OneWay}"
+                                Style="{StaticResource AccentButtonStyle}" />
+                        </StackPanel>
+                    </toolkit:SettingsCard>
+                    <toolkit:SettingsCard
+                        Description="La zone des stratégies de Windows est en lecture seule pour les comptes standard : déclarer l'éditeur demande une autorisation administrateur, une seule fois."
+                        Header="Pourquoi une élévation" />
+                </toolkit:SettingsExpander.Items>
+            </toolkit:SettingsExpander>
+
+            <toolkit:SettingsExpander
+                Description="{x:Bind ViewModel.ServerCertificateDetail, Mode=OneWay}"
+                Header="Certificat du serveur distant"
+                IsExpanded="True">
+                <toolkit:SettingsExpander.HeaderIcon>
+                    <FontIcon Glyph="&#xE968;" />
+                </toolkit:SettingsExpander.HeaderIcon>
+                <Button Command="{x:Bind ViewModel.ProbeServerCertificateCommand}" Content="Analyser le serveur" />
+                <toolkit:SettingsExpander.Items>
+                    <toolkit:SettingsCard Description="{x:Bind ViewModel.ServerCertificateState, Mode=OneWay}" Header="État" />
+                    <toolkit:SettingsCard
+                        Description="Fichier .cer ou .crt de l'autorité qui a émis le certificat du serveur. L'empreinte est affichée pour validation avant installation, dans votre magasin personnel — sans droits administrateur."
+                        Header="Importer l'autorité du serveur">
+                        <Button
+                            Command="{x:Bind ViewModel.ImportServerCaCommand}"
+                            Content="Importer…"
+                            Style="{StaticResource AccentButtonStyle}" />
+                    </toolkit:SettingsCard>
+                    <toolkit:SettingsCard
+                        Description="Cet avertissement concerne l'identité du serveur, pas la signature du fichier .rdp. Aucune vérification TLS n'est désactivée par l'application."
+                        Header="À ne pas confondre" />
+                </toolkit:SettingsExpander.Items>
+            </toolkit:SettingsExpander>
+
+            <TextBlock
+                Margin="0,16,0,4"
+                Style="{StaticResource CardTitleStyle}"
                 Text="Fichiers" />
 
             <toolkit:SettingsExpander Description="{x:Bind ViewModel.VersionText}" Header="Emplacements utilisés">

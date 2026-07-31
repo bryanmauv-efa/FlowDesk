@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using TermServMultiScreen.Core;
+using TermServMultiScreen.Core.Rdp;
 using TermServMultiScreen.Services;
 
 namespace TermServMultiScreen.ViewModels;
@@ -442,7 +443,7 @@ public sealed partial class HomeViewModel : ObservableObject
         SelectedProfileName = profile.Name;
         AppServices.Connections.Reload();
 
-        string? file = RdpFile.WriteSession(profile, CurrentSelection, _monitorService.Monitors, _config);
+        string? file = await RdpFile.WriteSessionAsync(profile, CurrentSelection, _monitorService.Monitors, _config);
         AppServices.Sessions.Reload();
         SetStatus("Prêt à se connecter", file is null
             ? $"Connexion « {profile.Name} » créée. Renseignez le serveur pour générer son fichier .rdp."
@@ -461,7 +462,7 @@ public sealed partial class HomeViewModel : ObservableObject
         ReloadProfileList();
         AppServices.Connections.Reload();
 
-        string? file = RdpFile.WriteSession(stored, CurrentSelection, _monitorService.Monitors, _config);
+        string? file = await RdpFile.WriteSessionAsync(stored, CurrentSelection, _monitorService.Monitors, _config);
         AppServices.Sessions.Reload();
         SetStatus("Prêt à se connecter", file is null
             ? $"Connexion « {stored.Name} » enregistrée. Renseignez le serveur pour générer son fichier .rdp."
@@ -522,7 +523,7 @@ public sealed partial class HomeViewModel : ObservableObject
             LoadProfile(profile);
             AppServices.Connections.Reload();
 
-            RdpFile.WriteSession(profile, CurrentSelection, _monitorService.Monitors, _config);
+            await RdpFile.WriteSessionAsync(profile, CurrentSelection, _monitorService.Monitors, _config);
             AppServices.Sessions.Reload();
             SetStatus("Prêt à se connecter",
                 $"Importé : {Path.GetFileName(file.Path)} — réglages conservés, mot de passe non recopié.");
@@ -580,6 +581,62 @@ public sealed partial class HomeViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    /// Vérifie que le nom du serveur figure bien dans son certificat et propose la correction
+    /// sinon. Renvoie false uniquement si l'utilisateur annule la connexion.
+    /// </summary>
+    private async Task<bool> EnsureServerNameMatchesAsync(Profile profile)
+    {
+        var probe = await RdpLauncher.CheckServerNameAsync(profile.Address);
+        if (probe is null || !probe.Reached || probe.NameMatches) return true;
+
+        string covered = probe.DnsNames.Count > 0 ? string.Join(", ", probe.DnsNames) : "(aucun nom)";
+        if (probe.SuggestedHost is not { } suggested)
+        {
+            bool anyway = await DialogService.ConfirmAsync("Identité du serveur",
+                $"Le certificat de « {probe.Host} » ne contient aucun nom exploitable ({covered})."
+                + Environment.NewLine + Environment.NewLine
+                + "Le Bureau à distance affichera « Impossible de vérifier l'identité de l'ordinateur distant »."
+                + Environment.NewLine + Environment.NewLine + "Continuer quand même ?",
+                "Continuer");
+            return anyway;
+        }
+
+        string corrected = RdpLauncher.ApplySuggestedHost(profile.Address, suggested);
+        bool fix = await DialogService.ConfirmAsync("Nom du serveur à corriger",
+            $"Le certificat du serveur ne couvre pas « {profile.Address} », mais « {covered} »."
+            + Environment.NewLine + Environment.NewLine
+            + "C'est exactement ce qui provoque le message « Impossible de vérifier l'identité de "
+            + "l'ordinateur distant ». Utiliser le nom du certificat corrige l'avertissement sans "
+            + "affaiblir aucune vérification."
+            + Environment.NewLine + Environment.NewLine
+            + $"Remplacer l'adresse par « {corrected} » ?",
+            "Corriger et connecter", "Connecter sans corriger");
+
+        if (!fix)
+        {
+            Log.Write($"Nom du serveur non conforme conservé à la demande de l'utilisateur : {profile.Address}");
+            return true;
+        }
+
+        // Corrigé partout : champ affiché, profil utilisé pour la connexion, connexion enregistrée.
+        profile.Address = corrected;
+        _loading = true;
+        Address = corrected;
+        _loading = false;
+
+        var stored = _config.Find(SelectedProfileName);
+        if (stored is not null)
+        {
+            stored.Address = corrected;
+            _config.Save();
+            ReloadProfileList();
+            AppServices.Connections.Reload();
+        }
+        Log.Write($"Adresse corrigée d'après le certificat du serveur : {corrected}");
+        return true;
+    }
+
     [RelayCommand]
     private async Task ConnectAsync()
     {
@@ -598,11 +655,34 @@ public sealed partial class HomeViewModel : ObservableObject
                 _config.Save();
             }
 
-            string path = Launcher.Launch(profile, selection, _monitorService.Monitors, _config);
+            // Contrôle du nom du serveur : une adresse absente du certificat déclenche
+            // « Impossible de vérifier l'identité de l'ordinateur distant » côté mstsc.
+            if (!await EnsureServerNameMatchesAsync(profile)) return;
+
+            // La signature du .rdp est une condition obligatoire du lancement.
+            await RdpTrust.InitializeAsync();
+            var result = await RdpLauncher.LaunchAsync(profile, selection, _monitorService.Monitors, _config);
             AppServices.Sessions.Reload();
+
+            if (!result.Success)
+            {
+                SetStatus("Session non lancée : signature .rdp invalide", result.FailureReason ?? "", warning: true);
+                await DialogService.InfoAsync(
+                    "Session non lancée",
+                    "Le fichier .rdp n'a pas pu être signé, la connexion a donc été interrompue."
+                    + Environment.NewLine + Environment.NewLine
+                    + result.FailureReason
+                    + Environment.NewLine + Environment.NewLine
+                    + "Ouvrez Paramètres › Confiance .rdp pour le diagnostic complet.");
+                return;
+            }
+
+            string screens = string.Join(" + ", selection.Select(m => $"{m.Order} {m.PositionLabel}"));
             SetStatus("Session lancée",
-                $"{selection.Count} écran(s) : {string.Join(" + ", selection.Select(m => $"{m.Order} {m.PositionLabel}"))}"
-                + $"   ({Path.GetFileName(path)})");
+                $"{selection.Count} écran(s) : {screens}   ({Path.GetFileName(result.Path)}) — "
+                + (result.PublisherTrusted
+                    ? "fichier signé, éditeur approuvé."
+                    : "fichier signé ; éditeur pas encore approuvé (une confirmation mstsc est attendue)."));
         }
         catch (Exception ex)
         {

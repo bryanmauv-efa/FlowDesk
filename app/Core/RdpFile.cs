@@ -222,15 +222,25 @@ public static class RdpFile
     /// Écrit (ou met à jour) le .rdp de la connexion dans le dossier des sessions. C'est le
     /// fichier que mstsc ouvrira, et il reste double-cliquable tel quel.
     /// </summary>
-    public static string? WriteSession(Profile profile, IList<MonitorInfo> selection, IList<MonitorInfo>? allMonitors, AppConfig? config)
+    public static async Task<string?> WriteSessionAsync(
+        Profile profile, IList<MonitorInfo> selection, IList<MonitorInfo>? allMonitors, AppConfig? config)
     {
         try
         {
             if (profile.Address.Trim().Length == 0 || selection.Count == 0) return null;
             Paths.EnsureFolders();
             string path = SessionPath(profile.Name);
+
+            // Écriture, puis signature : plus rien ne touche au contenu ensuite.
             Write(path, Build(profile, selection, allMonitors, config));
             Log.Write($"Fichier de connexion écrit : {path}");
+
+            var signing = await Rdp.RdpSigningService.SignAndValidateAsync(path);
+            if (!signing.Success)
+            {
+                // L'enregistrement reste valable : c'est le lancement qui exige une signature.
+                Log.Write($"Fichier enregistré mais NON signé : {signing.FailureReason}");
+            }
             return path;
         }
         catch (Exception ex)
@@ -259,32 +269,13 @@ public static class RdpFile
     }
 }
 
+/// <summary>
+/// Le lancement de mstsc vit désormais dans <see cref="Rdp.RdpLauncher"/> : la signature du
+/// fichier .rdp y est une condition obligatoire. Ce raccourci ne sert plus qu'à décrire une
+/// sélection d'écrans dans les aperçus et les journaux.
+/// </summary>
 public static class Launcher
 {
-    /// <summary>Génère le .rdp de la connexion et démarre mstsc dessus. Renvoie le chemin utilisé.</summary>
-    public static string Launch(Profile profile, IList<MonitorInfo> selection, IList<MonitorInfo>? allMonitors, AppConfig? config)
-    {
-        Paths.EnsureFolders();
-        string content = RdpFile.Build(profile, selection, allMonitors, config);
-        string path = RdpFile.SessionPath(profile.Name.Length > 0 ? profile.Name : profile.Address);
-        RdpFile.Write(path, content);
-
-        Log.Write($"Lancement : {path}");
-        Log.Write($"  écrans  : {Describe(selection, config)}");
-
-        string mstsc = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "mstsc.exe");
-        if (!File.Exists(mstsc)) mstsc = "mstsc.exe";
-
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = mstsc,
-            Arguments = $"\"{path}\"",
-            UseShellExecute = true
-        });
-        return path;
-    }
-
     public static string Describe(IEnumerable<MonitorInfo> selection, AppConfig? config) =>
-        string.Join(" + ", selection.Select(m =>
-            $"{m.Order} {m.PositionLabel} [Windows {m.WindowsNumber}, id RDP {RdpFile.EffectiveRdpId(m, config)}]"));
+        Rdp.RdpLauncher.Describe(selection, config);
 }

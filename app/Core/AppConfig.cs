@@ -71,6 +71,15 @@ public sealed class AppConfig
     public List<MapEntry> ManualMappings { get; set; } = [];
     public AppTheme Theme { get; set; } = AppTheme.Clair;
 
+    /// <summary>
+    /// L'approbation de l'éditeur .rdp a déjà été proposée : on ne redemande pas à chaque
+    /// démarrage, même si l'utilisateur a refusé l'élévation.
+    /// </summary>
+    public bool RdpTrustPromptDone { get; set; }
+
+    /// <summary>Certificat pour lequel la proposition a été faite : un nouveau la relance.</summary>
+    public string RdpTrustPromptCertificate { get; set; } = "";
+
     public Profile? Find(string? name) =>
         string.IsNullOrEmpty(name) ? null
         : Profiles.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.CurrentCultureIgnoreCase));

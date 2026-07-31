@@ -40,11 +40,15 @@ public sealed partial class MainWindow : Window
 
         // Couvre le changement de thème demandé ici comme celui venant de Windows.
         RootGrid.ActualThemeChanged += (_, _) => UpdateCaptionButtonColours();
-        RootGrid.Loaded += (_, _) =>
+        RootGrid.Loaded += async (_, _) =>
         {
             AppServices.ApplyTheme(AppServices.Config.Theme);
             UpdateThemeIcon();
             UpdateCaptionButtonColours();
+
+            // Configuration unique de la confiance .rdp, une fois la fenêtre affichée : la
+            // signature est préparée et l'approbation de l'éditeur proposée si elle manque.
+            await Core.Rdp.RdpTrustOnboarding.OfferIfNeededAsync();
         };
 
         NavFrame.Navigate(typeof(HomePage), null, new SuppressNavigationTransitionInfo());

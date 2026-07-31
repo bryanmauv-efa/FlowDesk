@@ -109,7 +109,7 @@ public sealed partial class ConnectionsViewModel : ObservableObject
         copy.Name = chosen.Trim();
         _config.Profiles.Add(copy);
         _config.Save();
-        RdpFile.WriteSession(copy, AppConfig.ResolveScreens(copy, AppServices.Monitors.Monitors),
+        await RdpFile.WriteSessionAsync(copy, AppConfig.ResolveScreens(copy, AppServices.Monitors.Monitors),
             AppServices.Monitors.Monitors, _config);
         Reload();
         AppServices.Home.ReloadProfileList();

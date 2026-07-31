@@ -10,6 +10,7 @@ public sealed partial class SettingsPage : Page
     {
         InitializeComponent();
         ViewModel.SyncTheme();
+        Loaded += async (_, _) => await ViewModel.RefreshRdpTrustAsync();
     }
 
     public SettingsViewModel ViewModel => AppServices.Settings;

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using Microsoft.UI.Xaml;
 using TermServMultiScreen.Core;
+using TermServMultiScreen.Core.Rdp;
 using TermServMultiScreen.Services;
 
 namespace TermServMultiScreen;
@@ -21,7 +22,10 @@ public partial class App : Application
 
         // Initialisation ici et pas dans OnLaunched : c'est le seul moment où le thème peut
         // encore être fixé pour toute l'application, boutons de la fenêtre compris.
-        try { AppServices.Initialize(); }
+        try
+        {
+            AppServices.Initialize();
+        }
         catch (Exception ex) { Log.Write($"Initialisation : {ex}"); }
     }
 
@@ -115,6 +119,18 @@ public partial class App : Application
                 return;   // l'application se ferme quand les pastilles disparaissent
             }
 
+            if (command.Has("rdptrust"))
+            {
+                _ = RunTrustDiagnosticsAsync(command);
+                return;   // Exit() est appelé à la fin du diagnostic
+            }
+
+            if (command.Has("resign"))
+            {
+                _ = ResignAllAsync(command);
+                return;
+            }
+
             var profile = config.Find(command.Value("profile"))
                           ?? config.Find(config.LastProfile)
                           ?? config.Profiles.FirstOrDefault();
@@ -145,7 +161,9 @@ public partial class App : Application
                 return;
             }
 
-            Launcher.Launch(profile, selection, monitors, config);
+            // La signature est obligatoire : le lancement est asynchrone et conditionnel.
+            _ = ConnectHeadlessAsync(command, profile, selection, monitors, config);
+            return;
         }
         catch (Exception ex)
         {
@@ -154,6 +172,103 @@ public partial class App : Application
         }
 
         Exit();
+    }
+
+    /// <summary>Lancement en ligne de commande : mstsc n'est démarré que si la signature est prouvée.</summary>
+    private async Task ConnectHeadlessAsync(CommandLine command, Profile profile,
+        List<MonitorInfo> selection, List<MonitorInfo> monitors, AppConfig config)
+    {
+        try
+        {
+            await RdpTrust.InitializeAsync();
+
+            // Sans interface, on ne corrige rien tout seul : on trace clairement le problème.
+            var probe = await RdpLauncher.CheckServerNameAsync(profile.Address);
+            if (probe is { Reached: true, NameMatches: false })
+            {
+                Log.Write($"ATTENTION — « {profile.Address} » est absent du certificat du serveur "
+                        + $"[{string.Join(", ", probe.DnsNames)}] : mstsc demandera de confirmer l'identité "
+                        + "du serveur. Corrigez l'adresse depuis l'application.");
+            }
+
+            var result = await RdpLauncher.LaunchAsync(profile, selection, monitors, config);
+
+            if (!result.Success)
+            {
+                string message = "La session n'a pas été lancée : le fichier .rdp n'a pas pu être signé."
+                               + Environment.NewLine + Environment.NewLine + result.FailureReason
+                               + Environment.NewLine + Environment.NewLine
+                               + "Diagnostic complet : TermServMultiScreen.exe --rdptrust";
+                WriteText(command, "erreur-signature.txt", message);
+                NativeMethods.MessageBox(0, message, "FlowDesk — signature .rdp", NativeMethods.MB_ICONERROR);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"Lancement en ligne de commande : {ex}");
+            WriteText(command, "erreur.txt", ex.ToString());
+        }
+        finally { Exit(); }
+    }
+
+    /// <summary>
+    /// Régénère et resigne le .rdp de chaque connexion enregistrée. Utile après un changement
+    /// d'adresse ou de certificat : les fichiers du dossier des sessions redeviennent cohérents.
+    /// </summary>
+    private async Task ResignAllAsync(CommandLine command)
+    {
+        var report = new StringBuilder();
+        try
+        {
+            var config = AppServices.Config;
+            var monitors = AppServices.Monitors.Monitors;
+            await RdpTrust.InitializeAsync();
+
+            foreach (var profile in config.Profiles)
+            {
+                var screens = AppConfig.ResolveScreens(profile, monitors);
+                if (screens.Count == 0)
+                {
+                    var primary = monitors.FirstOrDefault(m => m.IsPrimary) ?? monitors.FirstOrDefault();
+                    if (primary is not null) screens = [primary];
+                }
+
+                string? path = await RdpFile.WriteSessionAsync(profile, screens, monitors, config);
+                if (path is null)
+                {
+                    report.AppendLine($"{profile.Name,-24} IGNORÉ (serveur ou écrans manquants)");
+                    continue;
+                }
+
+                var (scope, signature) = RdpSigningService.ReadSignatureFields(path);
+                report.AppendLine($"{profile.Name,-24} {(scope && signature ? "SIGNÉ" : "NON SIGNÉ")}  {path}");
+            }
+
+            if (config.Profiles.Count == 0) report.AppendLine("Aucune connexion enregistrée.");
+            WriteText(command, "resignature.txt", report.ToString());
+            Log.Write("Régénération des .rdp :" + Environment.NewLine + report);
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"Régénération des .rdp : {ex}");
+            WriteText(command, "erreur.txt", ex.ToString());
+        }
+        finally { Exit(); }
+    }
+
+    private async Task RunTrustDiagnosticsAsync(CommandLine command)
+    {
+        try
+        {
+            var (_, report) = await RdpTrustDiagnostics.RunAsync();
+            WriteText(command, "diagnostic-rdp.txt", report);
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"Diagnostic RDP : {ex}");
+            WriteText(command, "erreur.txt", ex.ToString());
+        }
+        finally { Exit(); }
     }
 
     private static List<MonitorInfo> SelectionFor(CommandLine command, Profile profile, List<MonitorInfo> monitors)

@@ -32,7 +32,7 @@
     <Product>Bureau Ã  distance multi-Ã©crans</Product>
     <AssemblyTitle>Bureau Ã  distance multi-Ã©crans</AssemblyTitle>
     <Company>efa</Company>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
 
     <!-- Le rognage casserait la reflexion utilisee par XAML : desactive volontairement. -->
     <PublishTrimmed>false</PublishTrimmed>
@@ -54,6 +54,8 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <!-- Lecture des conteneurs PKCS#7 (.p7b) : format proposé par les autorités AD CS. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.10" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Segmented" Version="8.2.251219" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
   </ItemGroup>
