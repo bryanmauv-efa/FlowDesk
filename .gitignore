@@ -1,0 +1,16 @@
+# Build
+bin/
+obj/
+
+# Visual Studio
+.vs/
+
+# Publications
+publication/
+
+# Clé privée de signature
+private_key.xml
+
+# Fichiers utilisateur Visual Studio
+*.user
+*.suo

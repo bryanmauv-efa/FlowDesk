@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="TermServMultiScreen.Pages.AboutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer Padding="24,20,24,24">
+        <StackPanel MaxWidth="980" Spacing="16">
+            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="À propos" />
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <Image
+                            Width="44"
+                            Height="44"
+                            VerticalAlignment="Top"
+                            Source="ms-appx:///Assets/AppIcon.ico" />
+                        <StackPanel Spacing="2">
+                            <TextBlock
+                                FontSize="18"
+                                FontWeight="SemiBold"
+                                Text="Bureau à distance multi-écrans" />
+                            <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="{x:Bind VersionText}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock TextWrapping="Wrap">
+                        Cette application ouvre une session Bureau à distance sur les écrans que vous choisissez —
+                        un, deux, trois, ceux que vous voulez — sans jamais vous demander de deviner quel numéro
+                        Windows a attribué à quel écran.
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Style="{StaticResource CardTitleStyle}" Text="Pourquoi trois numérotations existent" />
+                    <TextBlock Style="{StaticResource TechnicalTextStyle}" TextWrapping="Wrap">
+                        Un même écran porte trois numéros différents, et c'est la source de toutes les erreurs
+                        de manipulation. L'application affiche les deux premiers et calcule le troisième.
+                    </TextBlock>
+
+                    <Grid ColumnSpacing="16" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            Text="Rang gauche → droite" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Style="{StaticResource TechnicalTextStyle}"
+                            Text="Le grand chiffre des cartes. Position physique réelle, calculée à partir des coordonnées du bureau : 1 est toujours l'écran le plus à gauche. C'est le seul numéro que vous manipulez." />
+
+                        <TextBlock
+                            Grid.Row="1"
+                            FontWeight="SemiBold"
+                            Text="Numéro Windows" />
+                        <TextBlock
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Style="{StaticResource TechnicalTextStyle}"
+                            Text="Celui de Paramètres › Système › Affichage (\\.\DISPLAY1, 2, 3…). Il dépend de l'ordre de branchement, pas de la position : l'écran de gauche peut très bien être le numéro 3." />
+
+                        <TextBlock
+                            Grid.Row="2"
+                            FontWeight="SemiBold"
+                            Text="Identifiant RDP" />
+                        <TextBlock
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Style="{StaticResource TechnicalTextStyle}"
+                            Text="Celui que mstsc.exe attend dans selectedmonitors, à partir de 0. Il suit l'ordre d'énumération de Windows, encore un autre. C'est l'application qui fait la traduction ; le bouton « Identifier les écrans » permet de le vérifier de ses propres yeux." />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Style="{StaticResource CardTitleStyle}" Text="Comment le choix des écrans est transmis" />
+                    <TextBlock Style="{StaticResource TechnicalTextStyle}" TextWrapping="Wrap">
+                        mstsc.exe n'a aucune option de ligne de commande pour choisir des écrans : la seule voie
+                        officielle est un fichier .rdp contenant « use multimon:i:1 » et « selectedmonitors:s:… ».
+                        L'application écrit ce fichier puis lance mstsc dessus. Le bouton « Aperçu du fichier .rdp »
+                        montre exactement ce qui sera envoyé — rien n'est caché.
+                    </TextBlock>
+                    <TextBlock Style="{StaticResource TechnicalTextStyle}" TextWrapping="Wrap">
+                        Le Bureau à distance n'accepte que des écrans adjacents. Quand la sélection ne forme pas un
+                        bloc, l'application le signale avant de lancer plutôt que de laisser mstsc échouer.
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Style="{StaticResource CardTitleStyle}" Text="Mots de passe" />
+                    <TextBlock Style="{StaticResource TechnicalTextStyle}" TextWrapping="Wrap">
+                        L'application ne demande, n'affiche et n'enregistre aucun mot de passe : c'est Windows qui
+                        s'en charge (Gestionnaire d'identification). À l'import d'un .rdp existant, tous les réglages
+                        sont repris sauf le mot de passe enregistré, qui reste dans le fichier d'origine.
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <TextBlock Style="{StaticResource CardTitleStyle}" Text="Raccourcis et ligne de commande" />
+                    <TextBlock
+                        FontFamily="Consolas"
+                        FontSize="12.5"
+                        IsTextSelectionEnabled="True"
+                        Text="{x:Bind UsageText}"
+                        TextWrapping="Wrap" />
+                    <TextBlock Style="{StaticResource TechnicalTextStyle}" TextWrapping="Wrap">
+                        Le bouton « Copier le .rdp sur le Bureau » produit un fichier double-cliquable qui ouvre
+                        directement la session sur les écrans choisis, sans passer par l'application.
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="6">
+                    <TextBlock Style="{StaticResource CardTitleStyle}" Text="Technique" />
+                    <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="{x:Bind StackText}" TextWrapping="Wrap" />
+                    <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="{x:Bind MachineText}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "TermServMultiScreen (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "TermServMultiScreen (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

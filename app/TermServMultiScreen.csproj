@@ -1,0 +1,77 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>TermServMultiScreen</RootNamespace>
+    <AssemblyName>TermServMultiScreen</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Icone fournie a la racine du projet : c'est la source unique, aucune copie a maintenir. -->
+    <ApplicationIcon>..\AppIcon.ico</ApplicationIcon>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+
+    <!-- Application classique, sans MSIX : rien a installer, un .exe a double-cliquer. -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <!--
+      EnableMsixTooling ne fabrique pas de paquet MSIX ici : il declenche la generation du
+      resources.pri, que le Windows App SDK exige pour embarquer les XAML compiles dans un
+      executable unique. UndockedRegFreeWinRT permet d'activer les types WinRT depuis le
+      dossier d'extraction, sans runtime installe sur la machine.
+    -->
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
+
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <Product>Bureau à distance multi-écrans</Product>
+    <AssemblyTitle>Bureau à distance multi-écrans</AssemblyTitle>
+    <Company>efa</Company>
+    <Version>2.0.0</Version>
+
+    <!-- Le rognage casserait la reflexion utilisee par XAML : desactive volontairement. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">true</PublishReadyToRun>
+    <SatelliteResourceLanguages>fr;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      L'icone de la racine est deposee dans Assets\ a la compilation, ou XAML la trouve
+      (barre de titre, page A propos). CopyToOutputDirectory est indispensable : sans lui
+      elle manque a la publication et la fenetre principale ne peut plus se charger.
+    -->
+    <Content Include="..\AppIcon.ico" Link="Assets\AppIcon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2526" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Segmented" Version="8.2.251219" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
+  </ItemGroup>
+
+  <!--
+    Pour une application non packagee, `dotnet publish` laisse de cote les XAML compiles (.xbf)
+    et l'index de ressources (.pri) : l'application publiee echoue alors au chargement de sa
+    premiere fenetre. On les ajoute donc explicitement a la publication.
+  -->
+  <Target Name="AjouterRessourcesXamlALaPublication" AfterTargets="ComputeFilesToPublish" Condition="'$(PublishSingleFile)' != 'true'">
+    <ItemGroup>
+      <_RessourcesXaml Include="$(OutDir)**\*.xbf" />
+      <_RessourcesXaml Include="$(OutDir)$(AssemblyName).pri" />
+      <ResolvedFileToPublish Include="@(_RessourcesXaml)">
+        <RelativePath>%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+</Project>
