@@ -18,6 +18,7 @@ public sealed partial class MainWindow : Window
         ["home"] = typeof(HomePage),
         ["connections"] = typeof(ConnectionsPage),
         ["sessions"] = typeof(SessionsPage),
+        ["share"] = typeof(SharePage),
         ["settings"] = typeof(SettingsPage),
         ["about"] = typeof(AboutPage)
     };

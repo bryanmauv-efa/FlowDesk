@@ -98,6 +98,41 @@ TermServMultiScreen.exe --profile "BN" --screens 1,2 --connect
 ---
 
 
+## Partager une session
+
+Onglet **Partage**. Il demande d'abord le sens : partager ou recevoir.
+
+**Partager** : choisir la connexion, décider si le nom d'utilisateur est inclus, puis récupérer un
+code à transmettre par message, courriel ou papier. Exemple réel pour une session complète — nom,
+serveur, utilisateur, écran sélectionné et toutes les options — **90 caractères** :
+
+```
+FD1wFAbOgD4HQduLM1ovJZZCwQI3Va3WZLB0P_ykjUkyzhbOgqaMUJ0JYlYNYAzpS62BgX7mwinoIeT9LqJ6uxWswE
+```
+
+**Recevoir** : coller le code, l'analyser — le contenu exact s'affiche avant tout import — puis
+importer. La connexion apparaît dans la liste, son `.rdp` est généré et signé immédiatement.
+
+Points de conception :
+
+- **Les deux applications ne communiquent jamais.** Le code porte lui-même toutes les données :
+  aucun réseau, aucun serveur, aucun compte. Il fonctionne même dicté au téléphone.
+- **Aucun mot de passe** ne circule, dans aucun cas : l'application n'en conserve aucun. Le nom
+  d'utilisateur, lui, n'est inclus que si l'expéditeur le demande.
+- **Compacité** : sérialisation binaire (pas de JSON), options empaquetées en bits, réglages `.rdp`
+  identiques aux valeurs par défaut retirés puisqu'ils seront régénérés, compression Brotli, puis
+  Base64 URL — donc sans `+`, `/` ni `=`, sûr dans un message ou une URL.
+- **Contrôle d'intégrité** de 2 octets : un code tronqué ou mal recopié est refusé avec un message
+  clair, jamais interprété de travers.
+- **Les écrans sont partagés par rang de gauche à droite**, la seule notion qui garde un sens d'un
+  poste à l'autre. Si le destinataire a moins d'écrans, la sélection est ramenée à ce qui existe et
+  il en est averti.
+- Un nom déjà pris n'est jamais écrasé en silence : l'application propose un autre nom.
+- Le code n'est pas chiffré : le nom du serveur y est lisible par qui le détient. Transmettez-le
+  comme vous transmettriez l'adresse du serveur.
+
+---
+
 ## Signature des fichiers .rdp
 
 Chaque `.rdp` généré est signé par `rdpsign.exe` avec le certificat **CN=FlowDesk RDP Publisher**
@@ -165,9 +200,11 @@ app\
       RdpLauncher.cs              pipeline strict : pas de signature = pas de mstsc
       RdpTrust.cs                 orchestration et état affiché dans l'interface
       RdpTrustDiagnostics.cs      25 contrôles réels, PASS / FAIL / WARNING
+    Share\              code de partage d'une session, hors ligne et autoporteur
+      SessionShareCode.cs         sérialisation binaire, Brotli, Base64 URL, contrôle d'intégrité
   Services\      composition, surveillance des écrans, dialogues, pastilles d'identification
   ViewModels\    MVVM (CommunityToolkit.Mvvm)
-  Pages\         Accueil, Connexions, Sessions, Paramètres, À propos
+  Pages\         Accueil, Connexions, Sessions, Partage, Paramètres, À propos
   Overlays\      fenêtre plein écran d'identification des écrans
 AppIcon.ico      icône de l'application (source unique, reprise à chaque compilation)
 compilation.bat  compilation de l'exécutable unique et autonome

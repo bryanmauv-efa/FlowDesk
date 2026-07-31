@@ -51,6 +51,12 @@ public static class RdpFile
         "remoteapplicationmode:i:0"
     ];
 
+    /// <summary>
+    /// Réglages que l'application applique d'office : un code de partage n'a pas besoin de les
+    /// transporter, ils seront régénérés à l'identique.
+    /// </summary>
+    public static IReadOnlyList<string> DefaultRdpLines => DefaultLines;
+
     /// <summary>Identifiant mstsc effectif d'un écran (correspondance manuelle prise en compte).</summary>
     public static int EffectiveRdpId(MonitorInfo monitor, AppConfig? config) =>
         config?.ManualRdpId(monitor.StableKey) ?? monitor.RdpId;

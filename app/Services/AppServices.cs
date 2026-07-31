@@ -17,6 +17,7 @@ public static class AppServices
     public static ConnectionsViewModel Connections { get; private set; } = null!;
     public static SessionsViewModel Sessions { get; private set; } = null!;
     public static SettingsViewModel Settings { get; private set; } = null!;
+    public static ShareViewModel Share { get; private set; } = null!;
 
     public static Window? MainWindow { get; set; }
     public static XamlRoot? XamlRoot => MainWindow?.Content?.XamlRoot;
@@ -39,6 +40,7 @@ public static class AppServices
         Connections = new ConnectionsViewModel(Config);
         Sessions = new SessionsViewModel();
         Settings = new SettingsViewModel(Config, Monitors);
+        Share = new ShareViewModel(Config);
 
         IsInitialized = true;
         Log.Write($"Démarrage — {Monitors.Monitors.Count} écran(s) : {string.Join(" | ",
