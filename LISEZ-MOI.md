@@ -98,6 +98,41 @@ TermServMultiScreen.exe --profile "BN" --screens 1,2 --connect
 ---
 
 
+## Dispositions d'écrans prises en charge
+
+Le plan reproduit la **géométrie réelle** du bureau, comme Paramètres › Affichage : chaque carte a
+la position et les proportions de son écran. Sont donc gérées sans cas particulier :
+
+- des écrans de **tailles et résolutions différentes** ;
+- un écran **en dessous ou au-dessus** des autres, et plus généralement plusieurs rangées ;
+- des écrans en **portrait** comme en **paysage**, y compris un portrait couvrant deux rangées ;
+- **jusqu'à 5 écrans** et au-delà (la limite est celle de mstsc, 16) ;
+- des écrans non alignés, décalés, ou non adjacents.
+
+Les rangs affichés suivent l'**ordre de lecture** : de gauche à droite, rangée par rangée en
+partant du haut. Sur une rangée unique — le cas courant — c'est exactement l'ordre de gauche à
+droite. Les libellés s'adaptent : `Gauche / Centre / Droite` sur une rangée, `Haut gauche`,
+`Bas droite`… sur plusieurs.
+
+Deux détails qui comptent :
+
+- Les rangées sont détectées par recouvrement vertical, en comparant chaque écran au **cœur** de la
+  rangée (l'intersection de ses membres, jamais leur union). Sans cela un écran en portrait couvrant
+  deux rangées absorberait la rangée du dessous.
+- Les raccourcis « 2 écrans », « 3 écrans »… explorent les groupes **réellement voisins** en deux
+  dimensions et privilégient ceux qui forment un **rectangle plein**, que mstsc gère mieux. Sur une
+  disposition 2×2 plus un écran à droite, « 4 écrans » propose donc le carré, pas les quatre
+  premiers de la liste.
+
+Vérification sans avoir le matériel sous la main :
+
+```bash
+TermServMultiScreen.exe --maptest    # rapport texte : rangées, rangs, libellés, groupes
+TermServMultiScreen.exe --mapdemo    # aperçu graphique de dispositions de référence
+```
+
+---
+
 ## Partager une session
 
 Onglet **Partage**. Il demande d'abord le sens : partager ou recevoir.
@@ -191,6 +226,7 @@ TermServMultiScreen.exe --rdptrust
 app\
   Core\          logique sans interface : écrans, fichiers .rdp, configuration, journal
     MonitorInfo.cs      énumération Win32 et les trois numérotations
+    MonitorLayout.cs    géométrie pure : rangées, ordre de lecture, libellés, groupes voisins
     RdpFile.cs          fabrication et import des .rdp
     AppConfig.cs        connexions enregistrées (System.Text.Json)
     Rdp\                signature et confiance des .rdp
@@ -202,6 +238,8 @@ app\
       RdpTrustDiagnostics.cs      25 contrôles réels, PASS / FAIL / WARNING
     Share\              code de partage d'une session, hors ligne et autoporteur
       SessionShareCode.cs         sérialisation binaire, Brotli, Base64 URL, contrôle d'intégrité
+  Controls\      MonitorMapPanel : place les cartes à l'échelle et à leur position réelle
+  Themes\        gabarit de carte partagé (accueil et aperçu), avec liaisons compilées
   Services\      composition, surveillance des écrans, dialogues, pastilles d'identification
   ViewModels\    MVVM (CommunityToolkit.Mvvm)
   Pages\         Accueil, Connexions, Sessions, Partage, Paramètres, À propos

@@ -232,31 +232,18 @@ public sealed partial class HomeViewModel : ObservableObject
             $"Configuration des écrans mise à jour : {_monitorService.Monitors.Count} écran(s) détecté(s).");
     }
 
-    /// <summary>Reconstruit le plan des écrans et les boutons de raccourci.</summary>
+    /// <summary>
+    /// Reconstruit le plan des écrans et les boutons de raccourci. La géométrie des cartes est
+    /// laissée au panneau de mise en page, qui reproduit la disposition réelle.
+    /// </summary>
     private void RebuildCards(IList<MonitorInfo> selection)
     {
         var monitors = MonitorEnumerator.LeftToRight(_monitorService.Monitors);
         int count = monitors.Count;
-        double cardHeight = count switch
-        {
-            <= 1 => 240,
-            2 => 228,
-            3 => 208,
-            4 or 5 => 150,
-            _ => 112
-        };
-
-        int minTop = monitors.Count > 0 ? monitors.Min(m => m.LayoutBounds.Top) : 0;
-        int referenceHeight = monitors.Count > 0 ? monitors.Max(m => m.LayoutBounds.Height) : 1;
 
         Cards.Clear();
         foreach (var monitor in monitors)
-        {
-            double scale = referenceHeight > 0 ? cardHeight / referenceHeight : 1;
-            double offset = Math.Clamp((monitor.LayoutBounds.Top - minTop) * scale, 0, 90);
-            Cards.Add(new MonitorCardViewModel(
-                monitor, selection.Contains(monitor), cardHeight, offset, OnCardToggled));
-        }
+            Cards.Add(new MonitorCardViewModel(monitor, selection.Contains(monitor), OnCardToggled));
 
         Presets.Clear();
         if (count <= 1) Presets.Add("Écran unique");
@@ -267,9 +254,11 @@ public sealed partial class HomeViewModel : ObservableObject
             Presets.Add("Écran principal");
         }
 
+        int rows = MonitorLayout.DetectRows(monitors.Select(m => m.LayoutBounds).ToList()).Count;
         ScreensHeader = count switch
         {
             1 => "Écran — un seul écran détecté",
+            _ when rows > 1 => $"Écrans — disposition réelle, {count} écrans sur {rows} rangées",
             _ => "Écrans — classés de gauche à droite, comme dans Windows"
         };
     }
@@ -322,24 +311,19 @@ public sealed partial class HomeViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Meilleur groupe de N écrans voisins : on privilégie celui qui contient l'écran principal,
-    /// puis le plus à gauche. mstsc exige des écrans adjacents.
+    /// Meilleur groupe de N écrans voisins, valable en deux dimensions : le groupe croît de proche
+    /// en proche, et l'on privilégie celui qui contient l'écran principal puis celui qui forme un
+    /// rectangle plein. mstsc exige des écrans adjacents.
     /// </summary>
     private List<MonitorInfo> BestRun(int count)
     {
         var ordered = MonitorEnumerator.LeftToRight(_monitorService.Monitors);
         if (count >= ordered.Count) return ordered;
 
-        List<MonitorInfo>? best = null;
-        int bestScore = int.MinValue;
-        for (int start = 0; start + count <= ordered.Count; start++)
-        {
-            var run = ordered.Skip(start).Take(count).ToList();
-            if (!MonitorEnumerator.IsContiguous(run)) continue;
-            int score = (run.Any(m => m.IsPrimary) ? 1000 : 0) + (ordered.Count - start);
-            if (score > bestScore) { bestScore = score; best = run; }
-        }
-        return best ?? ordered.Take(count).ToList();
+        var bounds = ordered.Select(m => m.LayoutBounds).ToList();
+        int primary = ordered.FindIndex(m => m.IsPrimary);
+        var group = MonitorLayout.BestAdjacentGroup(bounds, count, primary);
+        return group.Select(i => ordered[i]).ToList();
     }
 
     private void SyncPresetSelection()

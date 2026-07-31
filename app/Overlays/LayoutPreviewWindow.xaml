@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="TermServMultiScreen.Overlays.LayoutPreviewWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:TermServMultiScreen.Controls"
+    Title="Aperçu des dispositions d'écrans">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="Root" Padding="24" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Aperçu des dispositions d'écrans" />
+
+        <StackPanel
+            Grid.Row="1"
+            Orientation="Horizontal"
+            Spacing="12">
+            <TextBlock VerticalAlignment="Center" Text="Disposition :" />
+            <ComboBox
+                x:Name="LayoutChooser"
+                MinWidth="380"
+                SelectionChanged="LayoutChooser_SelectionChanged" />
+        </StackPanel>
+
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}">
+            <ItemsControl
+                x:Name="Map"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                ItemTemplate="{StaticResource MonitorCardTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <controls:MonitorMapPanel Inset="4" MaxMapHeight="380" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </Border>
+
+        <TextBlock
+            x:Name="Summary"
+            Grid.Row="3"
+            FontFamily="Consolas"
+            FontSize="12"
+            IsTextSelectionEnabled="True"
+            Style="{StaticResource TechnicalTextStyle}" />
+    </Grid>
+</Window>

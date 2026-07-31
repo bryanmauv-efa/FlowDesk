@@ -140,7 +140,7 @@ public static class MonitorEnumerator
         }
 
         ChooseLayoutRects(list);
-        AssignOrder(list);
+        AssignOrderAndLabels(list);
         return list;
     }
 
@@ -258,38 +258,24 @@ public static class MonitorEnumerator
         if (!devModeUsable) Log.Write("Plan basé sur GetMonitorInfo (DEVMODE incohérent ou indisponible).");
     }
 
-    /// <summary>Attribue le rang 1..N de gauche à droite (puis de haut en bas), comme Windows.</summary>
-    private static void AssignOrder(List<MonitorInfo> list)
+    /// <summary>
+    /// Attribue le rang 1..N dans l'ordre de lecture — de gauche à droite, rangée par rangée en
+    /// partant du haut — et le libellé de position correspondant. Une rangée unique donne
+    /// exactement l'ordre de gauche à droite ; un écran placé en dessous devient « Bas ».
+    /// </summary>
+    public static void AssignOrderAndLabels(List<MonitorInfo> list)
     {
-        var sorted = list.OrderBy(m => m.LayoutBounds.Left).ThenBy(m => m.LayoutBounds.Top).ToList();
-        for (int i = 0; i < sorted.Count; i++) sorted[i].Order = i + 1;
+        var bounds = list.Select(m => m.LayoutBounds).ToList();
+        var order = MonitorLayout.ReadingOrder(bounds);
+        var labels = MonitorLayout.PositionLabels(bounds);
 
-        bool horizontal = sorted.Select(m => m.LayoutBounds.Left).Distinct().Count() == sorted.Count;
-        bool vertical = !horizontal && sorted.Select(m => m.LayoutBounds.Top).Distinct().Count() == sorted.Count;
-
-        for (int i = 0; i < sorted.Count; i++)
+        for (int position = 0; position < order.Count; position++)
         {
-            sorted[i].PositionLabel = sorted.Count == 1 ? "Écran unique"
-                : horizontal ? HorizontalLabel(i, sorted.Count)
-                : vertical ? VerticalLabel(i, sorted.Count)
-                : $"Écran {i + 1}";
+            var monitor = list[order[position]];
+            monitor.Order = position + 1;
+            monitor.PositionLabel = labels[order[position]];
         }
     }
-
-    private static string HorizontalLabel(int i, int count) => i switch
-    {
-        0 => "Gauche",
-        _ when i == count - 1 => "Droite",
-        _ when count == 3 => "Centre",
-        _ => $"Milieu {i}"
-    };
-
-    private static string VerticalLabel(int i, int count) => i switch
-    {
-        0 => "Haut",
-        _ when i == count - 1 => "Bas",
-        _ => $"Milieu {i}"
-    };
 
     /// <summary>Ordre d'affichage officiel de l'application : gauche → droite.</summary>
     public static List<MonitorInfo> LeftToRight(IEnumerable<MonitorInfo> monitors) =>
@@ -299,61 +285,14 @@ public static class MonitorEnumerator
     /// mstsc exige un ensemble d'écrans contigus : vérifie que la sélection forme un seul bloc
     /// (les rectangles se touchent, de proche en proche).
     /// </summary>
-    public static bool IsContiguous(IList<MonitorInfo> selection)
-    {
-        if (selection.Count <= 1) return true;
-
-        var seen = new bool[selection.Count];
-        var queue = new Queue<int>();
-        queue.Enqueue(0);
-        seen[0] = true;
-        int visited = 1;
-
-        while (queue.Count > 0)
-        {
-            int current = queue.Dequeue();
-            for (int i = 0; i < selection.Count; i++)
-            {
-                if (seen[i] || !Touches(selection[current].LayoutBounds, selection[i].LayoutBounds)) continue;
-                seen[i] = true;
-                visited++;
-                queue.Enqueue(i);
-            }
-        }
-        return visited == selection.Count;
-    }
-
-    private static bool Touches(Rectangle a, Rectangle b)
-    {
-        if (a.IntersectsWith(b)) return true;
-
-        bool verticalOverlap = a.Top < b.Bottom && b.Top < a.Bottom;
-        bool horizontalOverlap = a.Left < b.Right && b.Left < a.Right;
-
-        if (verticalOverlap && (a.Right == b.Left || b.Right == a.Left)) return true;
-        if (horizontalOverlap && (a.Bottom == b.Top || b.Bottom == a.Top)) return true;
-        return false;
-    }
+    public static bool IsContiguous(IList<MonitorInfo> selection) =>
+        MonitorLayout.IsContiguous(selection.Select(m => m.LayoutBounds).ToList());
 
     /// <summary>Le rectangle englobant de la sélection est-il entièrement couvert (aucun trou) ?</summary>
-    public static bool FillsBoundingBox(IList<MonitorInfo> selection)
-    {
-        if (selection.Count == 0) return true;
-        var box = selection[0].LayoutBounds;
-        long area = 0;
-        foreach (var m in selection)
-        {
-            box = Rectangle.Union(box, m.LayoutBounds);
-            area += (long)m.LayoutBounds.Width * m.LayoutBounds.Height;
-        }
-        return area >= (long)box.Width * box.Height;
-    }
+    public static bool FillsBoundingBox(IList<MonitorInfo> selection) =>
+        MonitorLayout.FillsBoundingBox(selection.Select(m => m.LayoutBounds).ToList());
 
     /// <summary>Rectangle englobant de tous les écrans (bureau virtuel).</summary>
-    public static Rectangle BoundingBox(IEnumerable<MonitorInfo> monitors)
-    {
-        Rectangle? box = null;
-        foreach (var m in monitors) box = box is null ? m.LayoutBounds : Rectangle.Union(box.Value, m.LayoutBounds);
-        return box ?? Rectangle.Empty;
-    }
+    public static Rectangle BoundingBox(IEnumerable<MonitorInfo> monitors) =>
+        MonitorLayout.Union(monitors.Select(m => m.LayoutBounds));
 }

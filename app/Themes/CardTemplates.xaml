@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Dictionnaire dedie : les liaisons compilees x:Bind exigent un code-behind, ce que App.xaml
+    ne peut pas fournir. Le gabarit est ainsi partage a l'identique entre la page d'accueil et
+    la fenetre d'apercu des dispositions.
+-->
+<ResourceDictionary
+    x:Class="TermServMultiScreen.Themes.CardTemplates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:TermServMultiScreen.ViewModels">
+        <!--
+            Carte d'écran : position et taille imposées par MonitorMapPanel, qui reproduit la
+            disposition réelle. Le contenu vit dans un Viewbox et se réduit donc tout seul sur un
+            écran plus petit que ses voisins, sans jamais grossir au-delà de sa taille nominale.
+        -->
+        <DataTemplate x:Key="MonitorCardTemplate" x:DataType="vm:MonitorCardViewModel">
+            <ToggleButton
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                Style="{StaticResource MonitorCardStyle}"
+                ToolTipService.ToolTip="{x:Bind ToolTipText}">
+                <Grid>
+                    <Border
+                        Width="24"
+                        Height="24"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="White"
+                        CornerRadius="12"
+                        Visibility="{x:Bind BadgeVisibility, Mode=OneWay}">
+                        <FontIcon
+                            FontSize="12"
+                            Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                            Glyph="&#xE73E;" />
+                    </Border>
+
+                    <Viewbox
+                        Margin="4"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Stretch="Uniform"
+                        StretchDirection="DownOnly">
+                        <StackPanel Width="188">
+                            <TextBlock
+                                FontSize="42"
+                                FontWeight="SemiBold"
+                                LineHeight="48"
+                                Text="{x:Bind Number}"
+                                TextAlignment="Center" />
+                            <TextBlock
+                                Margin="0,8,0,0"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind PositionLabel}"
+                                TextAlignment="Center"
+                                TextWrapping="Wrap" />
+                            <TextBlock
+                                FontSize="12.5"
+                                Opacity="0.8"
+                                Text="{x:Bind WindowsLabel}"
+                                TextAlignment="Center" />
+                            <TextBlock
+                                FontSize="12.5"
+                                Opacity="0.8"
+                                Text="{x:Bind ResolutionText}"
+                                TextAlignment="Center" />
+                            <TextBlock
+                                FontSize="11.5"
+                                Opacity="0.75"
+                                Text="{x:Bind OrientationText}"
+                                TextAlignment="Center"
+                                Visibility="{x:Bind OrientationVisibility}" />
+                            <TextBlock
+                                Margin="0,5,0,0"
+                                FontSize="11.5"
+                                FontWeight="SemiBold"
+                                Text="PRINCIPAL"
+                                TextAlignment="Center"
+                                Visibility="{x:Bind PrimaryVisibility}" />
+                        </StackPanel>
+                    </Viewbox>
+                </Grid>
+            </ToggleButton>
+        </DataTemplate>
+</ResourceDictionary>

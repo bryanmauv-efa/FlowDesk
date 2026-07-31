@@ -10,6 +10,7 @@ namespace TermServMultiScreen;
 public partial class App : Application
 {
     private Window? _window;
+    private Window? _preview;
 
     public App()
     {
@@ -128,6 +129,28 @@ public partial class App : Application
             if (command.Has("resign"))
             {
                 _ = ResignAllAsync(command);
+                return;
+            }
+
+            if (command.Has("mapdemo"))
+            {
+                // Fenêtre d'aperçu : même panneau et même gabarit que la page d'accueil.
+                _preview = new Overlays.LayoutPreviewWindow();
+                _preview.Closed += (_, _) => Exit();
+                _preview.Activate();
+                return;
+            }
+
+            if (command.Has("maptest"))
+            {
+                // Dispositions réelles de la machine, puis dispositions de référence.
+                string report = MonitorLayout.Describe("Disposition réelle de ce poste",
+                                    monitors.Select(m => m.LayoutBounds).ToList(),
+                                    monitors.FindIndex(m => m.IsPrimary))
+                              + Environment.NewLine
+                              + MonitorLayout.DescribeReferenceLayouts();
+                WriteText(command, "test-dispositions.txt", report);
+                Exit();
                 return;
             }
 

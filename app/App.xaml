@@ -3,11 +3,13 @@
     x:Class="TermServMultiScreen.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:TermServMultiScreen">
+    xmlns:local="using:TermServMultiScreen"
+    xmlns:themes="using:TermServMultiScreen.Themes">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <themes:CardTemplates />
             </ResourceDictionary.MergedDictionaries>
 
             <!--  Titre d'une carte  -->

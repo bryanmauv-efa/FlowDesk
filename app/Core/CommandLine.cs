@@ -41,7 +41,7 @@ public sealed class CommandLine
 
     /// <summary>Vrai si la ligne de commande demande une action sans interface.</summary>
     public bool IsHeadless =>
-        Has("connect") || Has("identify") || Has("list") || Has("print") || Has("rdptrust") || Has("resign");
+        Has("connect") || Has("identify") || Has("list") || Has("print") || Has("rdptrust") || Has("resign") || Has("maptest") || Has("mapdemo");
 
     public static string Usage =>
         """
@@ -58,6 +58,8 @@ public sealed class CommandLine
           --list              rapport de diagnostic des écrans
           --rdptrust          diagnostic complet de la signature et de la confiance .rdp
           --resign            régénère et resigne le .rdp de chaque connexion enregistrée
+          --maptest           vérifie la géométrie des dispositions d'écrans
+          --mapdemo           aperçu graphique des dispositions, réelle et de référence
           --print             affiche le fichier .rdp qui serait utilisé
           --out <fichier>     écrit la sortie texte dans un fichier
 

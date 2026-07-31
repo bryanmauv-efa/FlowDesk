@@ -1,10 +1,15 @@
+using System.Drawing;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 using TermServMultiScreen.Core;
 
 namespace TermServMultiScreen.ViewModels;
 
-/// <summary>Une carte d'écran dans le plan : ce que l'utilisateur voit et clique.</summary>
+/// <summary>
+/// Une carte d'écran dans le plan. La géométrie n'est plus calculée ici : le panneau de mise en
+/// page place et dimensionne la carte d'après <see cref="Bounds"/>, ce qui reproduit fidèlement
+/// n'importe quelle disposition — tailles inégales, portrait, écran en dessous.
+/// </summary>
 public sealed partial class MonitorCardViewModel : ObservableObject
 {
     private readonly Action<MonitorCardViewModel> _onToggled;
@@ -15,36 +20,29 @@ public sealed partial class MonitorCardViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
-    public MonitorCardViewModel(
-        MonitorInfo monitor,
-        bool selected,
-        double cardHeight,
-        double topOffset,
-        Action<MonitorCardViewModel> onToggled)
+    public MonitorCardViewModel(MonitorInfo monitor, bool selected, Action<MonitorCardViewModel> onToggled)
     {
         Monitor = monitor;
         _onToggled = onToggled;
-
-        // Largeur proportionnelle à la forme réelle de l'écran : un écran en portrait
-        // apparaît haut et étroit, comme dans les paramètres de Windows.
-        double ratio = monitor.Resolution.Height > 0
-            ? (double)monitor.Resolution.Width / monitor.Resolution.Height
-            : 16d / 9d;
-        CardHeight = cardHeight;
-        CardWidth = Math.Clamp(cardHeight * ratio, 110, 620);
-        CardMargin = new Thickness(0, topOffset, 0, 0);
-
         SetSelectedQuiet(selected);
     }
 
-    public double CardWidth { get; }
-    public double CardHeight { get; }
-    public Thickness CardMargin { get; }
+    /// <summary>Position et taille réelles sur le bureau virtuel, en pixels.</summary>
+    public Rectangle Bounds => Monitor.LayoutBounds;
 
     public string Number => Monitor.Order.ToString();
     public string PositionLabel => Monitor.PositionLabel;
     public string WindowsLabel => $"Windows {Monitor.WindowsNumber}";
     public string ResolutionText => Monitor.ResolutionText;
+
+    /// <summary>Portrait, paysage ou carré : affiché pour les dispositions inhabituelles.</summary>
+    public string OrientationText => Monitor.Resolution.Height > Monitor.Resolution.Width
+        ? "portrait"
+        : Monitor.Resolution.Width == Monitor.Resolution.Height ? "carré" : "";
+
+    public Visibility OrientationVisibility =>
+        OrientationText.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
     public Visibility PrimaryVisibility => Monitor.IsPrimary ? Visibility.Visible : Visibility.Collapsed;
     public Visibility BadgeVisibility => IsSelected ? Visibility.Visible : Visibility.Collapsed;
 
