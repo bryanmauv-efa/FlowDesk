@@ -95,6 +95,43 @@ public static class DialogService
         await ShowAsync(dialog);
     }
 
+    public static async Task RunWithProgressAsync(string title, string message, Func<Task> action)
+    {
+        var panel = new StackPanel { Spacing = 16, Orientation = Orientation.Horizontal };
+        panel.Children.Add(new ProgressRing { IsActive = true, Width = 24, Height = 24 });
+        panel.Children.Add(new TextBlock { Text = message, VerticalAlignment = VerticalAlignment.Center });
+
+        var dialog = new ContentDialog
+        {
+            Title = title,
+            Content = panel
+        };
+
+        var root = AppServices.XamlRoot;
+        if (root is null || _busy) return;
+
+        dialog.XamlRoot = root;
+        if (AppServices.MainWindow?.Content is FrameworkElement element)
+            dialog.RequestedTheme = element.ActualTheme;
+
+        _busy = true;
+        _ = dialog.ShowAsync();
+
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"Erreur durant RunWithProgressAsync : {ex.Message}");
+        }
+        finally
+        {
+            dialog.Hide();
+            _busy = false;
+        }
+    }
+
     private static async Task<ContentDialogResult> ShowAsync(ContentDialog dialog)
     {
         var root = AppServices.XamlRoot;

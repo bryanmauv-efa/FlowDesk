@@ -17,7 +17,7 @@ public static class Updater
     private const string RepoName = "FlowDesk";
     private const string PublicKeyXml = "<RSAKeyValue><Modulus>1swHaavtlU4hYmSPmoanvTgwOiJTN/VgzA/tKo4kLaYE//uUufhTWB/iuTvKx69vJqdJzVE3/R1efOjUPw1xBlPFnmWPbDMADSSFShqbtyjnUAPMvOtyf/qyQy6RmAbRZYdzI5LnkulFTeQw2nA0Hmio6lPKjX7OGtz7306CXyDkOvlJi2HE1qMzajvsQmXB0vbinhy14/VKQG3ktd2S2/UJJWXo9xw1vE1LSMgwR+6c4V8oARvwA1gP7N5wewlb4Xb+CNtpPnpD9Nj3Our6rrsxKyZfgZ/ygYwrbBh4PoyW2rLefW/6g14uiCk7lk3gPhTLfrcpwoYNZSafX+BoJQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
 
-    public static async Task CheckAndUpdateAsync()
+    public static async Task CheckAndUpdateAsync(Func<string, Task<bool>> confirmUpdate, Func<Func<Task>, Task>? runWithProgress = null)
     {
         try
         {
@@ -35,31 +35,50 @@ public static class Updater
             var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
             if (currentVersion == null || remoteVersion <= currentVersion) return; // Deja a jour
 
-            // 2. Trouver les assets (.exe et .sig)
+            // 2. Demander confirmation à l'utilisateur
+            if (confirmUpdate != null)
+            {
+                bool proceed = await confirmUpdate(tag);
+                if (!proceed) return;
+            }
+
+            // 3. Trouver les assets (.exe et .sig)
             var exeAsset = release.Assets?.FirstOrDefault(a => a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
             var sigAsset = release.Assets?.FirstOrDefault(a => a.Name.EndsWith(".sig", StringComparison.OrdinalIgnoreCase));
 
             if (exeAsset == null || sigAsset == null) return; // Assets manquants
 
-            // 3. Telecharger les fichiers dans %TEMP%
-            string tempFolder = Path.Combine(Path.GetTempPath(), "TermServMultiScreenUpdate");
-            Directory.CreateDirectory(tempFolder);
-
-            string exePath = Path.Combine(tempFolder, exeAsset.Name);
-            string sigPath = Path.Combine(tempFolder, sigAsset.Name);
-
-            await DownloadFileAsync(client, exeAsset.BrowserDownloadUrl, exePath);
-            await DownloadFileAsync(client, sigAsset.BrowserDownloadUrl, sigPath);
-
-            // 4. Verifier la signature RSA
-            if (!VerifySignature(exePath, sigPath))
+            Func<Task> downloadAndApply = async () =>
             {
-                Log.Write("Erreur de mise à jour : La signature RSA de l'exécutable téléchargé est invalide ou corrompue.");
-                return; // Fichier non authentique, on annule
-            }
+                // 4. Telecharger les fichiers dans %TEMP%
+                string tempFolder = Path.Combine(Path.GetTempPath(), "TermServMultiScreenUpdate");
+                Directory.CreateDirectory(tempFolder);
 
-            // 5. Appliquer la mise à jour
-            ApplyUpdate(exePath);
+                string exePath = Path.Combine(tempFolder, exeAsset.Name);
+                string sigPath = Path.Combine(tempFolder, sigAsset.Name);
+
+                await DownloadFileAsync(client, exeAsset.BrowserDownloadUrl, exePath);
+                await DownloadFileAsync(client, sigAsset.BrowserDownloadUrl, sigPath);
+
+                // 5. Verifier la signature RSA
+                if (!VerifySignature(exePath, sigPath))
+                {
+                    Log.Write("Erreur de mise à jour : La signature RSA de l'exécutable téléchargé est invalide ou corrompue.");
+                    return; // Fichier non authentique, on annule
+                }
+
+                // 6. Appliquer la mise à jour
+                ApplyUpdate(exePath);
+            };
+
+            if (runWithProgress != null)
+            {
+                await runWithProgress(downloadAndApply);
+            }
+            else
+            {
+                await downloadAndApply();
+            }
         }
         catch (Exception ex)
         {

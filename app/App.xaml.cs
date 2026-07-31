@@ -43,7 +43,34 @@ public partial class App : Application
             _window.Activate();
 
             // Lancement asynchrone de la vérification de mise à jour (ne bloque pas l'UI)
-            _ = Updater.CheckAndUpdateAsync();
+            _ = Updater.CheckAndUpdateAsync(
+                async (version) =>
+                {
+                    var tcs = new TaskCompletionSource<bool>();
+                    AppServices.MainWindow?.DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        bool result = await DialogService.ConfirmAsync(
+                            "Mise à jour disponible",
+                            $"La nouvelle version {version} est disponible.\n\nVoulez-vous la télécharger et l'installer maintenant ?",
+                            "Mettre à jour", "Plus tard");
+                        tcs.SetResult(result);
+                    });
+                    return await tcs.Task;
+                },
+                async (action) =>
+                {
+                    var tcs = new TaskCompletionSource();
+                    AppServices.MainWindow?.DispatcherQueue.TryEnqueue(async () =>
+                    {
+                        await DialogService.RunWithProgressAsync(
+                            "Mise à jour en cours", 
+                            "Téléchargement et vérification de la signature...", 
+                            action);
+                        tcs.SetResult();
+                    });
+                    await tcs.Task;
+                }
+            );
         }
         catch (Exception ex)
         {

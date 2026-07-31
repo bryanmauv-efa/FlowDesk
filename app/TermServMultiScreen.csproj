@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -29,10 +29,10 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
 
-    <Product>Bureau à distance multi-écrans</Product>
-    <AssemblyTitle>Bureau à distance multi-écrans</AssemblyTitle>
+    <Product>Bureau Ã  distance multi-Ã©crans</Product>
+    <AssemblyTitle>Bureau Ã  distance multi-Ã©crans</AssemblyTitle>
     <Company>efa</Company>
-    <Version>2.0.0</Version>
+    <Version>1.0.3</Version>
 
     <!-- Le rognage casserait la reflexion utilisee par XAML : desactive volontairement. -->
     <PublishTrimmed>false</PublishTrimmed>

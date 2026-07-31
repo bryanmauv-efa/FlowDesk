@@ -14,3 +14,5 @@ private_key.xml
 # Fichiers utilisateur Visual Studio
 *.user
 *.suo
+# Cles RSA privées
+private_key.xml
