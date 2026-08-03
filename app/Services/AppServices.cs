@@ -31,11 +31,21 @@ public static class AppServices
     {
         if (IsInitialized) return;
 
+        // Chaque sous-étape est tracée : sur un poste où l'application se ferme au démarrage,
+        // le journal indique laquelle n'a pas abouti au lieu de laisser deviner.
+        StartupLog.Step("dossiers de travail");
         Paths.EnsureFolders();
+
+        StartupLog.Step("lecture de la configuration");
         Config = AppConfig.Load();
+
+        StartupLog.Step("thème initial");
         ApplyStartupTheme();
+
+        StartupLog.Step("énumération des écrans");
         Monitors = new MonitorService();
 
+        StartupLog.Step("création des vues");
         Home = new HomeViewModel(Config, Monitors);
         Connections = new ConnectionsViewModel(Config);
         Sessions = new SessionsViewModel();

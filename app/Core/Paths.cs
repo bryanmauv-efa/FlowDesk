@@ -6,8 +6,41 @@ namespace TermServMultiScreen.Core;
 /// <summary>Dossiers et fichiers de travail de l'application.</summary>
 public static class Paths
 {
-    public static string DataFolder { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TermServMultiScreen");
+    /// <summary>
+    /// Dossier de travail. L'emplacement normal est %LOCALAPPDATA% ; en cas de profil verrouillé
+    /// ou de dossier inaccessible, on se replie sur %TEMP% puis sur le dossier de l'exécutable —
+    /// mieux vaut un journal ailleurs que pas de journal du tout.
+    /// </summary>
+    public static string DataFolder { get; } = ResolveDataFolder();
+
+    /// <summary>Vrai si l'emplacement normal n'a pas pu être utilisé (visible dans le journal).</summary>
+    public static bool UsingFallbackFolder { get; private set; }
+
+    private static string ResolveDataFolder()
+    {
+        List<string> candidates = [];
+        try { candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TermServMultiScreen")); } catch { }
+        try { candidates.Add(Path.Combine(Path.GetTempPath(), "TermServMultiScreen")); } catch { }
+        try { candidates.Add(Path.Combine(AppContext.BaseDirectory, "TermServMultiScreen-data")); } catch { }
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            try
+            {
+                Directory.CreateDirectory(candidates[i]);
+                // Preuve d'écriture : un dossier créable n'est pas forcément inscriptible.
+                string probe = Path.Combine(candidates[i], ".ecriture");
+                File.WriteAllText(probe, "ok");
+                File.Delete(probe);
+                UsingFallbackFolder = i > 0;
+                return candidates[i];
+            }
+            catch { /* emplacement suivant */ }
+        }
+
+        UsingFallbackFolder = true;
+        return candidates.Count > 0 ? candidates[0] : Path.GetTempPath();
+    }
 
     public static string SessionsFolder => Path.Combine(DataFolder, "sessions");
     public static string ConfigFile => Path.Combine(DataFolder, "config.json");

@@ -19,34 +19,61 @@ public static class Updater
 
     public static async Task CheckAndUpdateAsync(Func<string, Task<bool>> confirmUpdate, Func<Func<Task>, Task>? runWithProgress = null)
     {
+        var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
         try
         {
-            using var client = new HttpClient();
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("TermServMultiScreen-Updater/1.0");
 
             // 1. Interroger GitHub pour la derniere release
             var releaseUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
             var release = await client.GetFromJsonAsync<GitHubRelease>(releaseUrl);
-            if (release == null || string.IsNullOrEmpty(release.TagName)) return;
+            if (release == null || string.IsNullOrEmpty(release.TagName))
+            {
+                Log.Write($"Mise à jour : aucune version publiée trouvée (version locale {currentVersion}).");
+                return;
+            }
 
             string tag = release.TagName.TrimStart('v', 'V');
-            if (!Version.TryParse(tag, out var remoteVersion)) return;
-
-            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
-            if (currentVersion == null || remoteVersion <= currentVersion) return; // Deja a jour
-
-            // 2. Demander confirmation à l'utilisateur
-            if (confirmUpdate != null)
+            if (!Version.TryParse(tag, out var remoteVersion))
             {
-                bool proceed = await confirmUpdate(tag);
-                if (!proceed) return;
+                Log.Write($"Mise à jour : étiquette « {release.TagName} » illisible, rien n'est fait.");
+                return;
+            }
+
+            if (currentVersion == null || remoteVersion <= currentVersion)
+            {
+                Log.Write($"Mise à jour : à jour (locale {currentVersion}, publiée {remoteVersion}).");
+                return;
+            }
+
+            Log.Write($"Mise à jour disponible : locale {currentVersion} → publiée {remoteVersion}. "
+                    + "Demande de confirmation à l'utilisateur.");
+
+            // 2. Demander confirmation à l'utilisateur. Sans confirmation explicite, on ne remplace
+            //    RIEN : une mise à jour silencieuse ressemblerait à une fermeture inexpliquée.
+            if (confirmUpdate is null)
+            {
+                Log.Write("Mise à jour annulée : aucune confirmation possible dans ce contexte.");
+                return;
+            }
+
+            bool proceed = await confirmUpdate(tag);
+            if (!proceed)
+            {
+                Log.Write("Mise à jour refusée ou reportée par l'utilisateur.");
+                return;
             }
 
             // 3. Trouver les assets (.exe et .sig)
             var exeAsset = release.Assets?.FirstOrDefault(a => a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
             var sigAsset = release.Assets?.FirstOrDefault(a => a.Name.EndsWith(".sig", StringComparison.OrdinalIgnoreCase));
 
-            if (exeAsset == null || sigAsset == null) return; // Assets manquants
+            if (exeAsset == null || sigAsset == null)
+            {
+                Log.Write("Mise à jour impossible : l'exécutable ou sa signature manque dans la publication.");
+                return;
+            }
 
             Func<Task> downloadAndApply = async () =>
             {
@@ -82,7 +109,8 @@ public static class Updater
         }
         catch (Exception ex)
         {
-            Log.Write($"Erreur lors de la vérification des mises à jour : {ex}");
+            Log.Write("Erreur lors de la vérification des mises à jour (le démarrage continue)"
+                    + Environment.NewLine + StartupLog.Describe(ex));
         }
     }
 
@@ -143,6 +171,10 @@ del ""%~f0""
             WindowStyle = ProcessWindowStyle.Hidden
         });
 
+        // Trace explicite : c'est la seule fermeture volontaire de l'application. Si le journal
+        // montre une fermeture SANS cette ligne, la cause est ailleurs.
+        Log.Write($"Mise à jour acceptée : fermeture volontaire pour remplacer « {currentExe} » "
+                + $"par « {newExePath} » via « {batPath} ».");
         Environment.Exit(0);
     }
 

@@ -86,7 +86,7 @@ public static class RdpCertificateService
             {
                 Log.Write($"Certificat de signature existant réutilisé : {found.Sha1}");
                 ReportSuperseded(superseded);
-                EnsureLocalTrust(found.Certificate);
+                await Task.Run(() => EnsureLocalTrust(found.Certificate));
                 Current = found;
                 return Current;
             }
@@ -95,7 +95,7 @@ public static class RdpCertificateService
             var created = Create();
             if (created is null) return null;
 
-            EnsureLocalTrust(created.Certificate);
+            await Task.Run(() => EnsureLocalTrust(created.Certificate));
             Current = created;
             Log.Write($"Certificat créé : {created.Sha1}");
             return Current;

@@ -14,40 +14,75 @@ public partial class App : Application
 
     public App()
     {
-        InitializeComponent();
+        // Le chargement de App.xaml peut échouer à lui seul (dictionnaire de ressources,
+        // contrôle introuvable) : sans ce filet, l'application se fermerait sans un mot.
+        StartupLog.Step("construction de l'application — chargement de App.xaml");
+        try
+        {
+            InitializeComponent();
+        }
+        catch (Exception ex)
+        {
+            Log.Write("ÉCHEC du chargement de App.xaml — l'application ne peut pas démarrer"
+                    + Environment.NewLine + StartupLog.Describe(ex));
+            FatalError("Le chargement de l'interface a échoué au démarrage.", ex);
+            throw;
+        }
+
         UnhandledException += (_, e) =>
         {
-            Log.Write($"Exception non gérée : {e.Exception}");
+            Log.Write("Exception non gérée (dispatcher XAML)" + Environment.NewLine
+                    + StartupLog.Describe(e.Exception));
             e.Handled = true;   // journalisée : l'application reste utilisable
         };
 
         // Initialisation ici et pas dans OnLaunched : c'est le seul moment où le thème peut
         // encore être fixé pour toute l'application, boutons de la fenêtre compris.
-        try
-        {
-            AppServices.Initialize();
-        }
-        catch (Exception ex) { Log.Write($"Initialisation : {ex}"); }
+        StartupLog.Try("initialisation des services (configuration, écrans, vues)", AppServices.Initialize);
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        AppServices.Initialize();
+        StartupLog.Step("OnLaunched");
+        if (!StartupLog.Try("initialisation des services (vérification)", AppServices.Initialize))
+        {
+            // Sans services, aucune fenêtre n'est possible : on prévient puis on ferme vraiment,
+            // sinon le processus resterait vivant et invisible dans le gestionnaire des tâches.
+            FatalError("L'initialisation de l'application a échoué.", null);
+            Exit();
+            return;
+        }
 
-        var command = new CommandLine(Environment.GetCommandLineArgs()[1..]);
+        CommandLine command;
+        try
+        {
+            command = new CommandLine(Environment.GetCommandLineArgs()[1..]);
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Lecture de la ligne de commande impossible" + Environment.NewLine + StartupLog.Describe(ex));
+            command = new CommandLine([]);
+        }
+
         if (command.IsHeadless)
         {
+            StartupLog.Step($"mode sans interface : {Environment.CommandLine}");
             RunHeadless(command);
             return;
         }
 
         try
         {
+            StartupLog.Step("création de la fenêtre principale");
             _window = new MainWindow();
             AppServices.MainWindow = _window;
+
+            StartupLog.Step("activation de la fenêtre principale");
             _window.Activate();
+            StartupLog.StartupCompleted();
 
             // Lancement asynchrone de la vérification de mise à jour (ne bloque pas l'UI)
+            StartupLog.Step("vérification des mises à jour en arrière-plan");
             _ = Updater.CheckAndUpdateAsync(
                 async (version) =>
                 {
@@ -80,15 +115,34 @@ public partial class App : Application
         catch (Exception ex)
         {
             // Sans fenêtre, l'application serait un processus fantôme : on le dit clairement.
-            Log.Write($"Création de la fenêtre principale — HRESULT=0x{ex.HResult:X8}{Environment.NewLine}{ex}");
-            NativeMethods.MessageBox(0,
-                "L'interface n'a pas pu s'ouvrir." + Environment.NewLine + Environment.NewLine
-                + ex.Message + Environment.NewLine + Environment.NewLine
-                + $"HRESULT 0x{ex.HResult:X8}" + Environment.NewLine
-                + "Détails complets dans :" + Environment.NewLine + Paths.LogFile,
-                "Bureau à distance multi-écrans", NativeMethods.MB_ICONERROR);
+            Log.Write("Création de la fenêtre principale impossible" + Environment.NewLine
+                    + StartupLog.Describe(ex));
+            FatalError("L'interface n'a pas pu s'ouvrir.", ex);
             Exit();
         }
+    }
+
+    /// <summary>
+    /// Message d'erreur natif : utilisable même quand l'interface XAML n'est pas disponible, ce qui
+    /// est précisément le cas quand l'application se fermerait sans explication.
+    /// </summary>
+    private static void FatalError(string summary, Exception? exception)
+    {
+        try
+        {
+            string details = exception is null
+                ? ""
+                : Environment.NewLine + Environment.NewLine + exception.GetType().Name
+                  + Environment.NewLine + exception.Message
+                  + Environment.NewLine + $"HRESULT 0x{exception.HResult:X8}";
+
+            NativeMethods.MessageBox(0,
+                summary + details + Environment.NewLine + Environment.NewLine
+                + "Le détail complet, avec les informations sur ce poste, est enregistré dans :"
+                + Environment.NewLine + Paths.LogFile,
+                "Bureau à distance multi-écrans", NativeMethods.MB_ICONERROR);
+        }
+        catch { /* on ne masque jamais l'erreur d'origine */ }
     }
 
     /// <summary>

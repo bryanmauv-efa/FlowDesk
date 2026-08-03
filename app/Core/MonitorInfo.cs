@@ -86,7 +86,8 @@ public static class MonitorEnumerator
                 szDevice = ""
             };
 
-            var info = new MonitorInfo { RdpId = index++ };
+            var info = new MonitorInfo();
+            int currentIndex = index++;
 
             if (NativeMethods.GetMonitorInfo(hMonitor, ref mi))
             {
@@ -103,7 +104,12 @@ public static class MonitorEnumerator
 
             FillFromDevMode(info);
             FillNames(info);
-            info.WindowsNumber = ParseDisplayNumber(info.GdiDeviceName, info.RdpId + 1);
+            info.WindowsNumber = ParseDisplayNumber(info.GdiDeviceName, currentIndex + 1);
+            
+            // Correction native : mstsc se base sur l'ID de la carte/moniteur (DISPLAYn), donc (n - 1).
+            // L'ordre d'énumération Win32 pur n'est pas fiable sur les configurations multi-GPU ou après déconnexion.
+            info.RdpId = info.WindowsNumber > 0 ? info.WindowsNumber - 1 : currentIndex;
+            
             info.StableKey = BuildStableKey(info);
 
             list.Add(info);

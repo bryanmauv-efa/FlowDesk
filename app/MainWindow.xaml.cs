@@ -25,14 +25,22 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
+        StartupLog.Step("chargement de MainWindow.xaml");
         InitializeComponent();
 
-        ExtendsContentIntoTitleBar = true;
-        SetTitleBar(AppTitleBar);
-        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        // La barre de titre personnalisée dépend de fonctions du système : sur une build de
+        // Windows plus ancienne, mieux vaut une barre standard qu'une application qui se ferme.
+        StartupLog.Try("barre de titre personnalisée", () =>
+        {
+            ExtendsContentIntoTitleBar = true;
+            SetTitleBar(AppTitleBar);
+            AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        });
+
         TrySetIcon();
         SizeAndCentre();
 
+        StartupLog.Step("mise en place de la fenêtre et du thème");
         AppServices.MainWindow = this;
         AppServices.Navigate = NavigateTo;
         AppServices.ApplyTheme(AppServices.Config.Theme);
@@ -43,20 +51,32 @@ public sealed partial class MainWindow : Window
         RootGrid.ActualThemeChanged += (_, _) => UpdateCaptionButtonColours();
         RootGrid.Loaded += async (_, _) =>
         {
+            StartupLog.Step("interface affichée");
             AppServices.ApplyTheme(AppServices.Config.Theme);
             UpdateThemeIcon();
             UpdateCaptionButtonColours();
 
             // Configuration unique de la confiance .rdp, une fois la fenêtre affichée : la
             // signature est préparée et l'approbation de l'éditeur proposée si elle manque.
-            await Core.Rdp.RdpTrustOnboarding.OfferIfNeededAsync();
+            try
+            {
+                StartupLog.Step("vérification de la confiance des fichiers .rdp");
+                await Core.Rdp.RdpTrustOnboarding.OfferIfNeededAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Préparation de la confiance .rdp impossible (l'application reste utilisable)"
+                        + Environment.NewLine + StartupLog.Describe(ex));
+            }
         };
 
+        StartupLog.Step("affichage de la page d'accueil");
         NavFrame.Navigate(typeof(HomePage), null, new SuppressNavigationTransitionInfo());
         AppServices.Monitors.StartWatching();
 
         Closed += (_, _) =>
         {
+            Log.Write("Fermeture de la fenêtre principale demandée.");
             AppServices.Monitors.StopWatching();
             IdentifyService.CloseAll();
             AppServices.Config.Save();

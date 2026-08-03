@@ -32,7 +32,7 @@
     <Product>Bureau Ã  distance multi-Ã©crans</Product>
     <AssemblyTitle>Bureau Ã  distance multi-Ã©crans</AssemblyTitle>
     <Company>efa</Company>
-    <Version>1.0.5</Version>
+    <Version>1.0.7</Version>
 
     <!-- Le rognage casserait la reflexion utilisee par XAML : desactive volontairement. -->
     <PublishTrimmed>false</PublishTrimmed>
