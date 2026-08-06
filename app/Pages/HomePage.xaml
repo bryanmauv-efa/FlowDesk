@@ -169,6 +169,16 @@
 
                         <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="{x:Bind ViewModel.SelectionSummary, Mode=OneWay}" />
 
+                        <!--  Le déplacement d'une session déjà ouverte se fait depuis la page Sessions.  -->
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Glyph="&#xE7C4;" />
+                            <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="Une session déjà ouverte se déplace d'un écran à l'autre sans se reconnecter : page Sessions, ou Ctrl + Alt + Maj + ← / → depuis la session." />
+                        </StackPanel>
+
                         <InfoBar
                             IsClosable="False"
                             IsOpen="True"

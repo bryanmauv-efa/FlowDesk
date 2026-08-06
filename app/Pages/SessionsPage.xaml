@@ -9,17 +9,130 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Sessions générées" />
+        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Sessions" />
 
-        <Grid Grid.Row="1">
-            <TextBlock
-                VerticalAlignment="Center"
-                Style="{StaticResource TechnicalTextStyle}"
-                Text="Chaque lancement produit un fichier .rdp réutilisable tel quel, écrans compris." />
+        <!--
+            ===================== Sessions ouvertes =====================
+            Déplacer la fenêtre d'une session en cours d'utilisation. Rien n'est réécrit : ni la
+            connexion enregistrée, ni son fichier .rdp, ni selectedmonitors.
+        -->
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}">
+            <StackPanel Spacing="12">
+                <Grid>
+                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Style="{StaticResource CardTitleStyle}" Text="Sessions ouvertes — changer d'écran sans se reconnecter" />
+                        <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="Déplace la fenêtre du Bureau à distance pendant son utilisation, y compris en plein écran. La connexion enregistrée et son fichier .rdp ne sont pas modifiés." />
+                    </StackPanel>
+                    <Button
+                        VerticalAlignment="Top"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.Name="Actualiser les sessions ouvertes"
+                        Command="{x:Bind Live.RefreshWindowsCommand}"
+                        ToolTipService.ToolTip="Relire la liste des fenêtres Bureau à distance ouvertes">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                            <TextBlock Text="Actualiser" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <TextBlock
+                    Style="{StaticResource TechnicalTextStyle}"
+                    Text="Aucune session Bureau à distance ouverte en ce moment. Lancez une session : sa fenêtre apparaîtra ici et pourra être déplacée d'un écran à l'autre."
+                    Visibility="{x:Bind Live.EmptyVisibility, Mode=OneWay}" />
+
+                <StackPanel Spacing="12" Visibility="{x:Bind Live.WindowsVisibility, Mode=OneWay}">
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox
+                            HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="Session à déplacer"
+                            DisplayMemberPath="Label"
+                            ItemsSource="{x:Bind Live.Windows}"
+                            SelectedItem="{x:Bind Live.Selected, Mode=TwoWay}" />
+                        <Button
+                            Grid.Column="1"
+                            Command="{x:Bind Live.ActivateWindowCommand}"
+                            Content="Afficher"
+                            ToolTipService.ToolTip="Mettre cette session au premier plan" />
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock
+                            Margin="0,0,4,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource FieldLabelStyle}"
+                            Text="Déplacer vers :" />
+                        <ItemsControl ItemsSource="{x:Bind Live.Targets}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ScreenTargetViewModel">
+                                    <Button
+                                        MinWidth="104"
+                                        Command="{x:Bind MoveCommand}"
+                                        Content="{x:Bind Label}"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        ToolTipService.ToolTip="{x:Bind ToolTipText}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button
+                            Margin="10,0,0,0"
+                            AutomationProperties.Name="Écran précédent"
+                            Command="{x:Bind Live.MovePreviousCommand}"
+                            ToolTipService.ToolTip="Écran précédent (Ctrl + Alt + Maj + flèche gauche)">
+                            <FontIcon FontSize="14" Glyph="&#xE76B;" />
+                        </Button>
+                        <Button
+                            AutomationProperties.Name="Écran suivant"
+                            Command="{x:Bind Live.MoveNextCommand}"
+                            ToolTipService.ToolTip="Écran suivant (Ctrl + Alt + Maj + flèche droite)">
+                            <FontIcon FontSize="14" Glyph="&#xE76C;" />
+                        </Button>
+                    </StackPanel>
+
+                    <CheckBox
+                        Content="Adapter la fenêtre à la taille de l'écran d'arrivée"
+                        IsChecked="{x:Bind Live.FitToScreen, Mode=TwoWay}"
+                        ToolTipService.ToolTip="Décochez pour conserver strictement la taille de la session. Une session étalée sur plusieurs écrans n'est jamais redimensionnée." />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Glyph="&#xE765;" />
+                        <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="{x:Bind Live.HotkeyText, Mode=OneWay}" />
+                    </StackPanel>
+
+                    <TextBlock
+                        FontSize="12.5"
+                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                        Text="{x:Bind Live.StatusText, Mode=OneWay}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2">
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+                <TextBlock Style="{StaticResource CardTitleStyle}" Text="Sessions générées" />
+                <TextBlock
+                    Style="{StaticResource TechnicalTextStyle}"
+                    Text="Chaque lancement produit un fichier .rdp réutilisable tel quel, écrans compris." />
+            </StackPanel>
             <StackPanel
                 HorizontalAlignment="Right"
                 Orientation="Horizontal"
@@ -39,7 +152,7 @@
             </StackPanel>
         </Grid>
 
-        <Border Grid.Row="2" Style="{StaticResource CardStyle}">
+        <Border Grid.Row="3" Style="{StaticResource CardStyle}">
             <Grid>
                 <TextBlock
                     HorizontalAlignment="Center"
@@ -83,7 +196,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="3" Style="{StaticResource CardStyle}">
+        <Border Grid.Row="4" Style="{StaticResource CardStyle}">
             <StackPanel Spacing="8">
                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="Derniers lancements (journal)" />
                 <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto">

@@ -16,8 +16,15 @@ public static class AppServices
     public static HomeViewModel Home { get; private set; } = null!;
     public static ConnectionsViewModel Connections { get; private set; } = null!;
     public static SessionsViewModel Sessions { get; private set; } = null!;
+    public static LiveSessionsViewModel LiveSessions { get; private set; } = null!;
     public static SettingsViewModel Settings { get; private set; } = null!;
     public static ShareViewModel Share { get; private set; } = null!;
+
+    /// <summary>
+    /// Raccourcis clavier globaux de déplacement des sessions. Null tant que la fenêtre principale
+    /// ne les a pas démarrés (mode sans interface, par exemple).
+    /// </summary>
+    public static RdpHotkeyService? Hotkeys { get; private set; }
 
     public static Window? MainWindow { get; set; }
     public static XamlRoot? XamlRoot => MainWindow?.Content?.XamlRoot;
@@ -49,6 +56,7 @@ public static class AppServices
         Home = new HomeViewModel(Config, Monitors);
         Connections = new ConnectionsViewModel(Config);
         Sessions = new SessionsViewModel();
+        LiveSessions = new LiveSessionsViewModel(Monitors);
         Settings = new SettingsViewModel(Config, Monitors);
         Share = new ShareViewModel(Config);
 
@@ -56,6 +64,27 @@ public static class AppServices
         Log.Write($"Démarrage — {Monitors.Monitors.Count} écran(s) : {string.Join(" | ",
             MonitorEnumerator.LeftToRight(Monitors.Monitors)
                 .Select(m => $"{m.ShortLabel} id={RdpFile.EffectiveRdpId(m, Config)}"))}");
+    }
+
+    /// <summary>
+    /// Démarre les raccourcis clavier globaux de déplacement des sessions. Appelé une fois la
+    /// fenêtre affichée : un échec ici ne doit jamais empêcher l'application de fonctionner.
+    /// </summary>
+    public static void StartHotkeys()
+    {
+        if (Hotkeys is not null || !IsInitialized) return;
+
+        var service = new RdpHotkeyService();
+        LiveSessions.Attach(service);
+        service.Start();
+        Hotkeys = service;
+    }
+
+    public static void StopHotkeys()
+    {
+        var service = Hotkeys;
+        Hotkeys = null;
+        service?.Dispose();
     }
 
     /// <summary>

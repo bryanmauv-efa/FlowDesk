@@ -70,9 +70,52 @@ montre exactement ce qui sera envoyé.
   redémarrer l'application.
 - **Copier le .rdp sur le Bureau** : produit un fichier double-cliquable qui ouvre directement la
   session sur les écrans choisis, sans passer par l'application.
+- **Déplacer une session en cours** d'un écran à l'autre — voir ci-dessous.
 - **Diagnostic** et **journal** : tout lancement est tracé, avec les trois numérotations.
 
 Les mots de passe ne sont ni demandés, ni affichés, ni enregistrés : c'est Windows qui s'en charge.
+
+---
+
+## Déplacer une session en cours d'utilisation
+
+Une session ouverte en plein écran sur un écran donné **ne se déplace pas à la souris** : `mstsc`
+ne laisse pas attraper sa fenêtre, et il n'existe aucune commande pour lui demander de changer
+d'écran. La seule voie serait de modifier `selectedmonitors` et de se reconnecter — donc de perdre
+la session.
+
+La page **Sessions** liste les sessions réellement ouvertes et les déplace là où vous voulez :
+
+- **boutons `1 · Gauche`, `2 · Centre`, `3 · Droite`…** : un bouton par écran, dans le même ordre
+  que le plan de la page d'accueil ;
+- **flèches précédent / suivant** : l'écran voisin, en faisant le tour ;
+- **raccourcis clavier, utilisables depuis la session elle-même** :
+
+| Raccourci | Effet |
+|---|---|
+| `Ctrl + Alt + Maj + ←` / `→` | écran précédent / suivant |
+| `Ctrl + Alt + Maj + 1…9` | écran choisi, numéroté **de gauche à droite** |
+
+Les raccourcis agissent sur la session **au premier plan** — celle dans laquelle vous êtes — et
+restent actifs tant que l'application est ouverte, fenêtre réduite comprise. Depuis l'application,
+c'est la session choisie dans la liste qui est déplacée.
+
+**Rien n'est modifié** : ni la connexion enregistrée, ni son fichier `.rdp`, ni `selectedmonitors`.
+Seule la position de la fenêtre change, le temps de cette session — la prochaine ouverture retrouve
+exactement les écrans configurés. La session n'est ni coupée ni rouverte : les applications
+distantes continuent de tourner.
+
+Quelques précisions utiles :
+
+- **Écran d'arrivée de taille différente** : la case *Adapter la fenêtre à la taille de l'écran
+  d'arrivée* (cochée par défaut) redimensionne la fenêtre pour couvrir l'écran ; le serveur suit si
+  la résolution dynamique est active. Décochée, la taille de la session est conservée au pixel près.
+- **Session étalée sur plusieurs écrans** : elle est translatée sans jamais être redimensionnée —
+  la réduire à un seul écran changerait la résolution de la session.
+- **Si le raccourci ne remonte pas** : avec l'option *Raccourcis clavier Windows › Dans la session*,
+  le client peut capter la combinaison avant Windows. Les boutons de la page Sessions fonctionnent
+  toujours, et `Ctrl + Alt + Attn` fait sortir du plein écran.
+- Chaque déplacement est tracé dans le journal, avec les positions avant et après.
 
 ---
 
@@ -236,11 +279,14 @@ app\
       RdpLauncher.cs              pipeline strict : pas de signature = pas de mstsc
       RdpTrust.cs                 orchestration et état affiché dans l'interface
       RdpTrustDiagnostics.cs      25 contrôles réels, PASS / FAIL / WARNING
+      RdpSessionWindows.cs        repérage des fenêtres de session réellement ouvertes
+      RdpWindowMover.cs           déplacement d'une session en cours, sans toucher au .rdp
     Share\              code de partage d'une session, hors ligne et autoporteur
       SessionShareCode.cs         sérialisation binaire, Brotli, Base64 URL, contrôle d'intégrité
   Controls\      MonitorMapPanel : place les cartes à l'échelle et à leur position réelle
   Themes\        gabarit de carte partagé (accueil et aperçu), avec liaisons compilées
   Services\      composition, surveillance des écrans, dialogues, pastilles d'identification
+    RdpHotkeyService.cs  raccourcis globaux de déplacement, sur leur propre boucle de messages
   ViewModels\    MVVM (CommunityToolkit.Mvvm)
   Pages\         Accueil, Connexions, Sessions, Partage, Paramètres, À propos
   Overlays\      fenêtre plein écran d'identification des écrans
@@ -266,6 +312,15 @@ réutilisable telle quelle.
   puis nom `\\.\DISPLAYn`, puis rang gauche → droite.
 - Le thème est fixé avant la création de la fenêtre, sinon les boutons Réduire / Agrandir / Fermer
   restent invisibles quelques secondes au démarrage.
+- Le déplacement d'une session en cours passe uniquement par `SetWindowPos` sur la fenêtre de
+  `mstsc`. Une session en plein écran n'est **jamais** rétablie puis réagrandie : elle se
+  retrouverait dans la zone de travail, barre des tâches visible. Le résultat est relu et une
+  seconde tentative est faite si `mstsc` a replacé sa fenêtre, puis vérifié — l'interface annonce
+  un échec plutôt que de laisser croire à une réussite.
+- Les raccourcis globaux sont posés par `RegisterHotKey(0, …)` depuis un fil dédié qui a sa propre
+  boucle `GetMessage` : détourner le `WndProc` de la fenêtre WinUI suffirait à faire tomber
+  l'interface. Windows traite ses raccourcis avant de livrer la touche à la fenêtre active, donc la
+  combinaison n'est pas envoyée au serveur distant.
 
 ---
 
