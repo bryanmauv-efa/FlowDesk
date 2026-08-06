@@ -16,6 +16,8 @@ public sealed partial class HomeViewModel : ObservableObject
     private readonly MonitorService _monitorService;
     private bool _loading;
     private bool _syncingPreset;
+    /// <summary>Le bandeau affiche l'avertissement « aucun écran » : à retirer dès qu'il y en a un.</summary>
+    private bool _noScreenStatus;
 
     public HomeViewModel(AppConfig config, MonitorService monitorService)
     {
@@ -197,13 +199,19 @@ public sealed partial class HomeViewModel : ObservableObject
             KeyboardHookIndex = Math.Clamp(profile?.KeyboardHook ?? 2, 0, 2);
 
             var selection = AppConfig.ResolveScreens(profile, _monitorService.Monitors);
-            if (selection.Count == 0) selection = DefaultSelection();
+            // Une connexion peut volontairement n'avoir aucun écran : cet état est conservé tel
+            // quel. Le repli sur l'écran principal ne sert plus qu'à deux cas utiles — aucune
+            // connexion à charger, ou des écrans enregistrés qui n'existent pas sur ce poste.
+            if (selection.Count == 0 && (profile is null || profile.Screens.Count > 0))
+                selection = DefaultSelection();
             RebuildCards(selection);
         }
         finally { _loading = false; }
 
         UpdateSummary();
-        if (profile is not null) SetStatus("Prêt à se connecter", $"Connexion « {profile.Name} » chargée.");
+        // L'avertissement « aucun écran » posé par UpdateSummary ne doit pas être écrasé.
+        if (profile is not null && CurrentSelection.Count > 0)
+            SetStatus("Prêt à se connecter", $"Connexion « {profile.Name} » chargée.");
     }
 
     private List<MonitorInfo> DefaultSelection()
@@ -216,7 +224,10 @@ public sealed partial class HomeViewModel : ObservableObject
     {
         var keep = CurrentSelection.Select(m => m.StableKey).ToHashSet();
         var selection = _monitorService.Monitors.Where(m => keep.Contains(m.StableKey)).ToList();
-        if (selection.Count == 0)
+
+        // Le repli n'a de sens que si des écrans étaient sélectionnés et ont disparu. Si
+        // l'utilisateur n'avait rien sélectionné, un changement d'écrans ne doit rien rétablir.
+        if (keep.Count > 0 && selection.Count == 0)
         {
             selection = AppConfig.ResolveScreens(_config.Find(SelectedProfileName), _monitorService.Monitors);
             if (selection.Count == 0) selection = DefaultSelection();
@@ -228,8 +239,11 @@ public sealed partial class HomeViewModel : ObservableObject
         finally { _loading = previous; }
 
         UpdateSummary();
-        SetStatus("Prêt à se connecter",
-            $"Configuration des écrans mise à jour : {_monitorService.Monitors.Count} écran(s) détecté(s).");
+        if (CurrentSelection.Count > 0)
+            SetStatus("Prêt à se connecter",
+                $"Configuration des écrans mise à jour : {_monitorService.Monitors.Count} écran(s) détecté(s).");
+        else
+            StatusDetail = $"{_monitorService.Monitors.Count} écran(s) détecté(s), aucun sélectionné.";
     }
 
     /// <summary>
@@ -270,15 +284,9 @@ public sealed partial class HomeViewModel : ObservableObject
     {
         if (_loading) return;
 
-        // Il faut toujours au moins un écran : on refuse la dernière décoche.
-        if (!card.IsSelected && Cards.Count(c => c.IsSelected) == 0)
-        {
-            card.SetSelectedQuiet(true);
-            SetStatus("Au moins un écran est nécessaire",
-                "Sélectionnez d'abord un autre écran pour libérer celui-ci.", warning: true);
-            return;
-        }
-
+        // Ne rien sélectionner est autorisé : chaque écran se décoche librement, y compris le
+        // dernier. C'est le lancement de la session qui refuse une sélection vide, avec une
+        // explication. Le bandeau d'état est tenu à jour par UpdateSummary.
         MarkDirty();
         UpdateSummary();
     }
@@ -332,7 +340,8 @@ public sealed partial class HomeViewModel : ObservableObject
         var monitors = MonitorEnumerator.LeftToRight(_monitorService.Monitors);
         int index = -1;
 
-        if (monitors.Count <= 1) index = 0;
+        if (selection.Count == 0) index = -1;
+        else if (monitors.Count <= 1) index = 0;
         else if (selection.Count == monitors.Count) index = 0;
         else if (selection.Count >= 1 && selection.SequenceEqual(BestRun(selection.Count))) index = selection.Count;
         else if (selection.Count == 1 && selection[0].IsPrimary) index = monitors.Count + 1;
@@ -347,8 +356,12 @@ public sealed partial class HomeViewModel : ObservableObject
         var selection = CurrentSelection;
         if (selection.Count == 0)
         {
-            SelectionSummary = "Aucun écran sélectionné.";
+            SelectionSummary = "Aucun écran sélectionné — la session ne peut pas être ouverte.";
             WarningText = "";
+            SyncPresetSelection();      // aucun raccourci ne doit rester affiché comme actif
+            _noScreenStatus = true;
+            SetStatus("Aucun écran sélectionné",
+                "Choisissez au moins un écran pour pouvoir ouvrir la session.", warning: true);
             return;
         }
 
@@ -370,6 +383,13 @@ public sealed partial class HomeViewModel : ObservableObject
 
         WarningText = string.Join(Environment.NewLine, warnings);
         SyncPresetSelection();
+
+        // Un écran vient d'être choisi : l'avertissement « aucun écran » n'a plus lieu d'être.
+        if (_noScreenStatus)
+        {
+            _noScreenStatus = false;
+            SetStatus("Prêt à se connecter", StatusDetail);
+        }
     }
 
     private void MarkDirty()
@@ -429,10 +449,25 @@ public sealed partial class HomeViewModel : ObservableObject
 
         string? file = await RdpFile.WriteSessionAsync(profile, CurrentSelection, _monitorService.Monitors, _config);
         AppServices.Sessions.Reload();
-        SetStatus("Prêt à se connecter", file is null
-            ? $"Connexion « {profile.Name} » créée. Renseignez le serveur pour générer son fichier .rdp."
-            : $"Connexion « {profile.Name} » créée — {Path.GetFileName(file)} enregistré dans le dossier des sessions.");
+        if (file is null)
+            SetStatus($"Connexion « {profile.Name} » créée", MissingForRdpFile(profile), CurrentSelection.Count == 0);
+        else
+            SetStatus("Prêt à se connecter",
+                $"Connexion « {profile.Name} » créée — {Path.GetFileName(file)} enregistré dans le dossier des sessions.");
     }
+
+    /// <summary>
+    /// Explique précisément pourquoi le fichier .rdp n'a pas pu être écrit. Une sélection d'écrans
+    /// vide est un état autorisé : il faut donc le dire, et non laisser croire à un serveur manquant.
+    /// </summary>
+    private string MissingForRdpFile(Profile profile) =>
+        (profile.Address.Trim().Length == 0, CurrentSelection.Count == 0) switch
+        {
+            (true, true) => "Renseignez le serveur et sélectionnez au moins un écran pour générer son fichier .rdp.",
+            (true, false) => "Renseignez le serveur pour générer son fichier .rdp.",
+            (false, true) => "Sélectionnez au moins un écran pour générer son fichier .rdp.",
+            _ => "Le fichier .rdp n'a pas pu être écrit — voir le journal."
+        };
 
     [RelayCommand]
     private async Task SaveProfileAsync()
@@ -448,10 +483,12 @@ public sealed partial class HomeViewModel : ObservableObject
 
         string? file = await RdpFile.WriteSessionAsync(stored, CurrentSelection, _monitorService.Monitors, _config);
         AppServices.Sessions.Reload();
-        SetStatus("Prêt à se connecter", file is null
-            ? $"Connexion « {stored.Name} » enregistrée. Renseignez le serveur pour générer son fichier .rdp."
-            : $"Connexion « {stored.Name} » enregistrée avec {CurrentSelection.Count} écran(s) — "
-              + $"{Path.GetFileName(file)} mis à jour dans le dossier des sessions.");
+        if (file is null)
+            SetStatus($"Connexion « {stored.Name} » enregistrée", MissingForRdpFile(stored), CurrentSelection.Count == 0);
+        else
+            SetStatus("Prêt à se connecter",
+                $"Connexion « {stored.Name} » enregistrée avec {CurrentSelection.Count} écran(s) — "
+                + $"{Path.GetFileName(file)} mis à jour dans le dossier des sessions.");
     }
 
     [RelayCommand]
@@ -497,7 +534,7 @@ public sealed partial class HomeViewModel : ObservableObject
             profile ??= new Profile { Name = name };
 
             RdpFile.Import(file.Path, profile);
-            profile.Screens = AppConfig.CaptureScreens(CurrentSelection.Count > 0 ? CurrentSelection : DefaultSelection());
+            profile.Screens = AppConfig.CaptureScreens(CurrentSelection);
             if (isNew) _config.Profiles.Add(profile);
             _config.LastProfile = profile.Name;
             _config.Save();
@@ -539,20 +576,28 @@ public sealed partial class HomeViewModel : ObservableObject
     private void RefreshMonitors()
     {
         bool changed = _monitorService.Refresh(force: true);
-        SetStatus("Prêt à se connecter",
-            $"{_monitorService.Monitors.Count} écran(s) détecté(s){(changed ? " — liste actualisée." : ".")}");
+        string detail = $"{_monitorService.Monitors.Count} écran(s) détecté(s){(changed ? " — liste actualisée." : ".")}";
+        if (CurrentSelection.Count > 0) SetStatus("Prêt à se connecter", detail);
+        else StatusDetail = detail;
     }
 
     private async Task<bool> ValidateAsync(Profile profile, IList<MonitorInfo> selection)
     {
+        // Vérifié en premier : c'est la seule chose que l'interface laisse volontairement vide.
+        if (selection.Count == 0)
+        {
+            SetStatus("Aucun écran sélectionné",
+                "Choisissez au moins un écran pour pouvoir ouvrir la session.", warning: true);
+            await DialogService.InfoAsync("Aucun écran sélectionné",
+                "Sélectionnez au moins un écran avant d'ouvrir la session."
+                + Environment.NewLine + Environment.NewLine
+                + "Cliquez sur un écran du plan pour l'ajouter, ou utilisez un raccourci "
+                + "(« Tous les écrans », « 2 écrans », « Écran principal »).");
+            return false;
+        }
         if (profile.Address.Length == 0)
         {
             await DialogService.InfoAsync("Serveur manquant", "Indiquez le nom ou l'adresse du serveur.");
-            return false;
-        }
-        if (selection.Count == 0)
-        {
-            await DialogService.InfoAsync("Écrans", "Sélectionnez au moins un écran.");
             return false;
         }
         if (selection.Count > 1 && !MonitorEnumerator.IsContiguous(selection))
