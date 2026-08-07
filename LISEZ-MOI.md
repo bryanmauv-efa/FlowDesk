@@ -139,6 +139,13 @@ focus, sinon elle partirait dans une autre application. Si la bascule atterrit s
 la ramène sur l'écran demandé sans lui faire perdre son plein écran. En dernier recours seulement,
 la fenêtre couvre l'écran — et l'application le dit au lieu de laisser croire à un plein écran.
 
+**La barre de connexion suit.** Elle est une fenêtre indépendante, pas une fenêtre fille : aucune
+des manœuvres ci-dessus ne l'emmène avec la session, et elle resterait affichée sur l'écran de
+départ. Elle est donc rattrapée après coup, quel que soit le chemin emprunté, et replacée au même
+endroit relatif le long du bord haut de l'écran d'arrivée. Le contrôle est repassé trois fois, de
+plus en plus espacé, parce que `mstsc` replace parfois sa barre après nous — et une barre déjà sur
+le bon écran n'est jamais touchée.
+
 ### En secours : une session qu'on ne peut pas attraper du tout
 
 Une session en plein écran n'a ni bordure ni barre de titre : la souris n'a rien à saisir. La page

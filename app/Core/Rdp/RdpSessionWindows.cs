@@ -128,14 +128,14 @@ public static class RdpWindowFinder
         NativeMethods.IsWindow(handle) ? Describe(handle, ClientProcessIds()) : null;
 
     /// <summary>
-    /// Barres de connexion flottantes posées sur <paramref name="screen"/> : fenêtres larges et
-    /// très basses appartenant au même processus que la session.
+    /// Barres de connexion flottantes de cette session : fenêtres larges et très basses
+    /// appartenant au même processus, celle de la session exceptée.
     ///
-    /// Selon la version du client, la barre du plein écran est une fenêtre à part entière — elle
-    /// doit alors suivre la session, sinon elle resterait affichée sur l'écran de départ. Là où
-    /// c'est une fenêtre fille, elle se déplace d'elle-même et cette liste est vide.
+    /// La barre du plein écran est une fenêtre <b>à part entière</b>, pas une fenêtre fille : elle
+    /// ne suit donc pas la session quand celle-ci change d'écran, et reste affichée sur l'écran de
+    /// départ si personne ne s'en occupe.
     /// </summary>
-    public static List<nint> FindBars(uint processId, Rectangle screen, nint except)
+    public static List<nint> FindBars(uint processId, nint except)
     {
         List<nint> bars = [];
 
@@ -149,13 +149,13 @@ public static class RdpWindowFinder
                 if (owner != processId) return true;
                 if (!NativeMethods.GetWindowRect(hwnd, out var rect)) return true;
 
+                // Gabarit d'une barre de connexion : large et très basse. Rien d'autre, dans le
+                // processus du client, ne ressemble à ça.
                 var bounds = new Rectangle(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
                 if (bounds.Height is <= 0 or > MaximumBarHeight) return true;
                 if (bounds.Width < MinimumBarWidth) return true;
 
-                // Seules les barres réellement posées sur l'écran de départ suivent la session.
-                var centre = new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
-                if (screen.Contains(centre)) bars.Add(hwnd);
+                bars.Add(hwnd);
             }
             catch
             {

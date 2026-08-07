@@ -92,11 +92,25 @@ public static class RdpWindowMover
     // ------------------------------------------------------------------ déplacement
 
     /// <summary>
-    /// Pose la session sur l'écran demandé, en plein écran. La méthode est choisie d'après l'état
-    /// réel de la fenêtre — les trois cas sont journalisés, ce qui permet de savoir sur un poste
-    /// donné laquelle a servi.
+    /// Pose la session sur l'écran demandé, en plein écran, barre de connexion comprise. La méthode
+    /// est choisie d'après l'état réel de la fenêtre — les trois cas sont journalisés, ce qui permet
+    /// de savoir sur un poste donné laquelle a servi.
     /// </summary>
     public static async Task<RdpMoveResult> MoveToAsync(
+        RdpSessionWindow window, MonitorInfo target, IEnumerable<MonitorInfo> monitors)
+    {
+        var result = await RelocateAsync(window, target, monitors);
+
+        // La barre de connexion est une fenêtre indépendante : aucune des manœuvres ci-dessus ne
+        // l'emmène avec la session. Elle est donc rattrapée après coup, quel que soit le chemin
+        // emprunté — c'est le seul endroit où le traitement vaut pour les trois cas.
+        if (result.Success)
+            await SettleBarsAsync(window, ScreenBounds(target), monitors);
+
+        return result;
+    }
+
+    private static async Task<RdpMoveResult> RelocateAsync(
         RdpSessionWindow window, MonitorInfo target, IEnumerable<MonitorInfo> monitors)
     {
         nint hwnd = window.Handle;
@@ -232,10 +246,6 @@ public static class RdpWindowMover
             screen.Right + (before.Right - sourceScreen.Right),
             screen.Bottom + (before.Bottom - sourceScreen.Bottom));
 
-        // La barre de connexion flottante est repérée avant, tant qu'elle est encore sur l'écran de
-        // départ : c'est sa position qui permet de la reconnaître.
-        var bars = RdpWindowFinder.FindBars(window.ProcessId, sourceScreen, hwnd);
-
         Apply(hwnd, wanted, NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
         await Task.Delay(90);
 
@@ -248,8 +258,6 @@ public static class RdpWindowMover
             await Task.Delay(180);
             Landed(hwnd, wanted, out after);
         }
-
-        MoveBars(bars, after.X - before.X, after.Y - before.Y);
 
         bool success = after.Width > 0 && MajorityScreen(after, monitors) == screen;
         string where = $"écran {target.Order} {target.PositionLabel}";
@@ -482,23 +490,68 @@ public static class RdpWindowMover
         return count;
     }
 
-    private static void MoveBars(List<nint> bars, int deltaX, int deltaY)
-    {
-        if (bars.Count == 0 || (deltaX == 0 && deltaY == 0)) return;
+    // ------------------------------------------------------------------ barre de connexion
 
-        foreach (nint bar in bars)
+    /// <summary>
+    /// Ramène sur l'écran d'arrivée toute barre de connexion de cette session restée ailleurs.
+    ///
+    /// Trois passes, de plus en plus espacées : mstsc replace ou recrée sa barre pendant la bascule
+    /// en plein écran, et cette bascule prend un temps variable. Les passes suivantes rattrapent
+    /// donc ce qu'il a fait après nous. Une barre déjà sur le bon écran n'est jamais touchée —
+    /// l'utilisateur a pu la déplacer le long du bord haut, autant l'y laisser.
+    /// </summary>
+    private static async Task SettleBarsAsync(
+        RdpSessionWindow window, Rectangle target, IEnumerable<MonitorInfo> monitors)
+    {
+        int[] delays = [150, 350, 700];
+
+        foreach (int delay in delays)
         {
+            await Task.Delay(delay);
+
             try
             {
-                if (!NativeMethods.IsWindow(bar) || !NativeMethods.GetWindowRect(bar, out var rect)) continue;
-                NativeMethods.SetWindowPos(bar, 0, rect.Left + deltaX, rect.Top + deltaY, 0, 0,
-                    NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+                foreach (nint bar in RdpWindowFinder.FindBars(window.ProcessId, window.Handle))
+                {
+                    Rectangle rect = CurrentRect(bar);
+                    if (rect.Width <= 0) continue;
+
+                    var centre = new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2);
+                    if (target.Contains(centre)) continue;
+
+                    BringBarToScreen(bar, rect, target, monitors);
+                }
             }
             catch (Exception ex)
             {
-                Log.Write($"Déplacement de la barre de connexion : {ex.Message}");
+                Log.Write($"Barre de connexion : {ex.Message}");
             }
         }
+    }
+
+    private static void BringBarToScreen(
+        nint bar, Rectangle rect, Rectangle target, IEnumerable<MonitorInfo> monitors)
+    {
+        Rectangle from = MajorityScreen(rect, monitors);
+
+        // Position relative conservée le long du bord haut : la barre reste là où elle était, même
+        // si l'écran d'arrivée n'a pas la même largeur.
+        double ratio = from.Width > 0 ? (double)(rect.Left - from.Left) / from.Width : 0;
+        int x = target.Left + (int)Math.Round(ratio * target.Width);
+        int y = target.Top + (rect.Top - from.Top);
+
+        // Et toujours entièrement visible sur l'écran d'arrivée.
+        x = Math.Clamp(x, target.Left, Math.Max(target.Left, target.Right - rect.Width));
+        y = Math.Clamp(y, target.Top, Math.Max(target.Top, target.Bottom - rect.Height));
+
+        if (!NativeMethods.SetWindowPos(bar, 0, x, y, 0, 0,
+                NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE))
+        {
+            Log.Write($"Barre de connexion : SetWindowPos a échoué (erreur {Marshal.GetLastWin32Error()}).");
+            return;
+        }
+
+        Log.Write($"Barre de connexion ramenée sur l'écran d'arrivée : {Describe(rect)} → ({x},{y}).");
     }
 
     private static bool IsBorderless(nint hwnd)
