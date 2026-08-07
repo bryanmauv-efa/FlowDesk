@@ -175,6 +175,15 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(nint hWnd, int nCmdShow);
 
+    public const int VK_LBUTTON = 0x01;
+
+    /// <summary>
+    /// Bouton de la souris encore enfoncé ? Le seul moyen de savoir qu'un déplacement à la souris
+    /// est toujours en cours sur la fenêtre d'un autre processus.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetClassNameW")]
     private static extern int GetClassNameNative(nint hWnd, StringBuilder lpClassName, int nMaxCount);
 

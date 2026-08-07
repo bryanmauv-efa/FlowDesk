@@ -74,14 +74,17 @@ public sealed partial class MainWindow : Window
         NavFrame.Navigate(typeof(HomePage), null, new SuppressNavigationTransitionInfo());
         AppServices.Monitors.StartWatching();
 
-        // Déplacement d'une session en cours d'utilisation, sans quitter la session : les
-        // raccourcis sont le seul moyen d'agir depuis un plein écran qui capte tout le clavier.
+        // Déplacer une session en cours d'utilisation. Le suivi automatique est la voie
+        // principale : faire glisser la fenêtre sur un autre écran suffit. Les raccourcis ne
+        // servent que lorsque l'application a le focus, la session captant tout le clavier.
+        StartupLog.Try("suivi automatique des sessions", AppServices.Follow.Start);
         StartupLog.Try("raccourcis de déplacement des sessions", AppServices.StartHotkeys);
 
         Closed += (_, _) =>
         {
             Log.Write("Fermeture de la fenêtre principale demandée.");
             AppServices.Monitors.StopWatching();
+            AppServices.Follow.Stop();
             AppServices.StopHotkeys();
             IdentifyService.CloseAll();
             AppServices.Config.Save();

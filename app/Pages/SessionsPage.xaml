@@ -26,7 +26,7 @@
                 <Grid>
                     <StackPanel VerticalAlignment="Center" Spacing="2">
                         <TextBlock Style="{StaticResource CardTitleStyle}" Text="Sessions ouvertes — changer d'écran sans se reconnecter" />
-                        <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="Déplace la fenêtre du Bureau à distance pendant son utilisation, y compris en plein écran. La connexion enregistrée et son fichier .rdp ne sont pas modifiés." />
+                        <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="Déplace la fenêtre du Bureau à distance pendant son utilisation. La connexion enregistrée et son fichier .rdp ne sont pas modifiés." />
                     </StackPanel>
                     <Button
                         VerticalAlignment="Top"
@@ -40,6 +40,16 @@
                         </StackPanel>
                     </Button>
                 </Grid>
+
+                <!--
+                    Le réglage principal : avec lui, faire glisser la fenêtre suffit. Tout ce qui
+                    suit n'est qu'un secours, pour une session qu'on ne peut pas attraper du tout.
+                -->
+                <ToggleSwitch
+                    Header="Plein écran automatique sur l'écran d'arrivée"
+                    IsOn="{x:Bind Live.FollowScreen, Mode=TwoWay}"
+                    OffContent="Désactivé — utilisez les boutons ci-dessous"
+                    OnContent="Faites glisser la fenêtre sur un autre écran : elle s'y met en plein écran toute seule" />
 
                 <TextBlock
                     Style="{StaticResource TechnicalTextStyle}"
@@ -103,11 +113,6 @@
                         </Button>
                     </StackPanel>
 
-                    <CheckBox
-                        Content="Adapter la fenêtre à la taille de l'écran d'arrivée"
-                        IsChecked="{x:Bind Live.FitToScreen, Mode=TwoWay}"
-                        ToolTipService.ToolTip="Décochez pour conserver strictement la taille de la session. Une session étalée sur plusieurs écrans n'est jamais redimensionnée." />
-
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon
                             VerticalAlignment="Center"
@@ -116,13 +121,14 @@
                             Glyph="&#xE765;" />
                         <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="{x:Bind Live.HotkeyText, Mode=OneWay}" />
                     </StackPanel>
-
-                    <TextBlock
-                        FontSize="12.5"
-                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                        Text="{x:Bind Live.StatusText, Mode=OneWay}"
-                        TextWrapping="Wrap" />
                 </StackPanel>
+
+                <!--  Hors du bloc précédent : l'état doit aussi s'afficher quand aucune session n'est ouverte.  -->
+                <TextBlock
+                    FontSize="12.5"
+                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                    Text="{x:Bind Live.StatusText, Mode=OneWay}"
+                    TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 

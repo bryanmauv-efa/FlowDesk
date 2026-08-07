@@ -21,6 +21,12 @@ public static class AppServices
     public static ShareViewModel Share { get; private set; } = null!;
 
     /// <summary>
+    /// Suivi automatique : une session déposée sur un autre écran y passe en plein écran. C'est la
+    /// voie principale, celle qui ne demande ni clic dans l'application ni raccourci.
+    /// </summary>
+    public static RdpFollowService Follow { get; private set; } = null!;
+
+    /// <summary>
     /// Raccourcis clavier globaux de déplacement des sessions. Null tant que la fenêtre principale
     /// ne les a pas démarrés (mode sans interface, par exemple).
     /// </summary>
@@ -52,11 +58,14 @@ public static class AppServices
         StartupLog.Step("énumération des écrans");
         Monitors = new MonitorService();
 
+        StartupLog.Step("suivi automatique des sessions");
+        Follow = new RdpFollowService(Monitors) { Enabled = Config.FollowScreenOnMove };
+
         StartupLog.Step("création des vues");
         Home = new HomeViewModel(Config, Monitors);
         Connections = new ConnectionsViewModel(Config);
         Sessions = new SessionsViewModel();
-        LiveSessions = new LiveSessionsViewModel(Monitors);
+        LiveSessions = new LiveSessionsViewModel(Config, Monitors, Follow);
         Settings = new SettingsViewModel(Config, Monitors);
         Share = new ShareViewModel(Config);
 

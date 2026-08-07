@@ -76,25 +76,39 @@ public sealed partial class ScreenTargetViewModel : ObservableObject
 /// </summary>
 public sealed partial class LiveSessionsViewModel : ObservableObject
 {
+    private readonly AppConfig _config;
     private readonly MonitorService _monitors;
+    private readonly RdpFollowService _follow;
     private readonly DispatcherQueue? _dispatcher;
     private readonly DispatcherTimer _watch = new() { Interval = TimeSpan.FromSeconds(3) };
     private string _targetSignature = "";
     private bool _moving;
+    private bool _loading;
 
-    public LiveSessionsViewModel(MonitorService monitors)
+    public LiveSessionsViewModel(AppConfig config, MonitorService monitors, RdpFollowService follow)
     {
+        _config = config;
         _monitors = monitors;
+        _follow = follow;
 
         // Capturé sur le fil de l'interface : les raccourcis clavier arrivent, eux, sur un autre fil.
         _dispatcher = DispatcherQueue.GetForCurrentThread();
 
+        _loading = true;
         StatusText = "";
         HotkeyText = RdpHotkeyService.Description;
-        FitToScreen = true;
+        FollowScreen = config.FollowScreenOnMove;
+        _loading = false;
 
         _watch.Tick += (_, _) => Refresh();
         _monitors.Changed += (_, _) => Refresh();
+
+        // Le suivi tourne en permanence : son compte rendu s'affiche si la page est ouverte.
+        _follow.Snapped += result =>
+        {
+            StatusText = result.Message;
+            Refresh();
+        };
     }
 
     public ObservableCollection<LiveWindowViewModel> Windows { get; } = [];
@@ -109,9 +123,25 @@ public sealed partial class LiveSessionsViewModel : ObservableObject
     [ObservableProperty]
     public partial string HotkeyText { get; set; }
 
-    /// <summary>Adapter la fenêtre à la taille de l'écran d'arrivée quand elle diffère.</summary>
+    /// <summary>
+    /// Mettre la session en plein écran sur l'écran d'arrivée dès qu'on l'y fait glisser. C'est le
+    /// réglage principal : avec lui, il n'y a plus rien à cliquer ni aucun raccourci à connaître.
+    /// </summary>
     [ObservableProperty]
-    public partial bool FitToScreen { get; set; }
+    public partial bool FollowScreen { get; set; }
+
+    partial void OnFollowScreenChanged(bool value)
+    {
+        if (_loading) return;
+
+        _follow.Enabled = value;
+        _config.FollowScreenOnMove = value;
+        _config.Save();
+
+        StatusText = value
+            ? "Plein écran automatique activé : faites glisser la fenêtre sur un autre écran, elle s'y met en plein écran."
+            : "Plein écran automatique désactivé : utilisez les boutons ci-dessous pour changer d'écran.";
+    }
 
     [ObservableProperty]
     public partial bool HasWindows { get; set; }
@@ -181,9 +211,13 @@ public sealed partial class LiveSessionsViewModel : ObservableObject
             if (Selected is null || !Windows.Contains(Selected)) Selected = Windows.FirstOrDefault();
 
             RebuildTargets(monitors);
+
+            // Formulation honnête : une session au premier plan capte le clavier, les raccourcis ne
+            // remontent donc que lorsque cette fenêtre-ci a le focus. Le suivi automatique, lui,
+            // fonctionne depuis la session.
             HotkeyText = AppServices.Hotkeys switch
             {
-                { Registered: true } => "Depuis la session elle-même :   " + RdpHotkeyService.Description,
+                { Registered: true } => "Quand cette fenêtre a le focus :   " + RdpHotkeyService.Description,
                 null => RdpHotkeyService.Description,
                 _ => "Raccourcis clavier indisponibles (combinaisons déjà prises par une autre "
                      + "application) : utilisez les boutons ci-dessus."
@@ -249,7 +283,10 @@ public sealed partial class LiveSessionsViewModel : ObservableObject
         _moving = true;
         try
         {
-            var result = await RdpWindowMover.MoveToAsync(window, target, _monitors.Monitors, FitToScreen);
+            // Un déplacement demandé explicitement met toujours la session en plein écran sur
+            // l'écran d'arrivée : c'est ce que veut dire « déplacer vers cet écran ».
+            var result = await RdpWindowMover.MoveToAsync(
+                window, target, _monitors.Monitors, fitToScreen: true, forceFullScreen: true);
             StatusText = result.Message;
         }
         catch (Exception ex)

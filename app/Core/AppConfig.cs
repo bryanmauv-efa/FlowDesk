@@ -72,6 +72,12 @@ public sealed class AppConfig
     public AppTheme Theme { get; set; } = AppTheme.Clair;
 
     /// <summary>
+    /// Mettre une session en plein écran sur l'écran d'arrivée dès qu'on l'y fait glisser. Activé
+    /// par défaut : c'est le comportement attendu quand on déplace une session en cours.
+    /// </summary>
+    public bool FollowScreenOnMove { get; set; } = true;
+
+    /// <summary>
     /// L'approbation de l'éditeur .rdp a déjà été proposée : on ne redemande pas à chaque
     /// démarrage, même si l'utilisateur a refusé l'élévation.
     /// </summary>

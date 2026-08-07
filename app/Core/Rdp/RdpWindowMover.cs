@@ -37,15 +37,22 @@ public static class RdpWindowMover
     private static Rectangle WorkBounds(MonitorInfo monitor) =>
         monitor.WindowWorkArea is { Width: > 0, Height: > 0 } ? monitor.WindowWorkArea : ScreenBounds(monitor);
 
+    /// <summary>Coordonnées de l'écran entier : celles qui servent à poser une fenêtre dessus.</summary>
+    public static Rectangle BoundsOf(MonitorInfo monitor) => ScreenBounds(monitor);
+
     /// <summary>L'écran qui porte la plus grande partie de la fenêtre.</summary>
-    public static MonitorInfo? CurrentMonitor(RdpSessionWindow window, IEnumerable<MonitorInfo> monitors)
+    public static MonitorInfo? CurrentMonitor(RdpSessionWindow window, IEnumerable<MonitorInfo> monitors) =>
+        MonitorOf(window.Bounds, monitors);
+
+    /// <summary>L'écran qui porte la plus grande partie de ce rectangle, null s'il flotte hors écran.</summary>
+    public static MonitorInfo? MonitorOf(Rectangle bounds, IEnumerable<MonitorInfo> monitors)
     {
         MonitorInfo? best = null;
         long bestArea = 0;
 
         foreach (var monitor in monitors)
         {
-            var shared = Rectangle.Intersect(ScreenBounds(monitor), window.Bounds);
+            var shared = Rectangle.Intersect(ScreenBounds(monitor), bounds);
             long area = (long)Math.Max(0, shared.Width) * Math.Max(0, shared.Height);
             if (area > bestArea) { bestArea = area; best = monitor; }
         }
@@ -72,9 +79,14 @@ public static class RdpWindowMover
     /// Pose la fenêtre sur l'écran demandé. <paramref name="fitToScreen"/> autorise le
     /// redimensionnement quand l'écran d'arrivée n'a pas la même taille ; une session étalée sur
     /// plusieurs écrans n'est jamais redimensionnée, elle est seulement translatée.
+    ///
+    /// <paramref name="forceFullScreen"/> traite la fenêtre comme un plein écran même si elle a
+    /// une barre de titre : elle couvre alors l'écran d'arrivée en entier. C'est ce que demande le
+    /// suivi automatique, quand on vient de faire glisser une session sur un autre écran.
     /// </summary>
     public static async Task<RdpMoveResult> MoveToAsync(
-        RdpSessionWindow window, MonitorInfo target, IEnumerable<MonitorInfo> monitors, bool fitToScreen)
+        RdpSessionWindow window, MonitorInfo target, IEnumerable<MonitorInfo> monitors,
+        bool fitToScreen, bool forceFullScreen = false)
     {
         nint hwnd = window.Handle;
         if (!NativeMethods.IsWindow(hwnd))
@@ -95,7 +107,7 @@ public static class RdpWindowMover
         // tâches comprise. L'absence de bordure suffit d'ordinaire à le dire, mais un client qui
         // garderait un style de bordure en plein écran ne doit pas être pris pour une fenêtre
         // ordinaire — on se fie donc aussi à ce qui est réellement recouvert.
-        bool fullScreen = window.FullScreen || CoversAnyScreen(before, monitors);
+        bool fullScreen = forceFullScreen || window.FullScreen || CoversAnyScreen(before, monitors);
 
         // Tant qu'elle est agrandie, Windows garde la fenêtre sur son écran : il faut la rétablir,
         // la déplacer, puis l'agrandir de nouveau sur l'écran d'arrivée. Une session en plein écran
@@ -112,7 +124,7 @@ public static class RdpWindowMover
 
         Rectangle screen = fullScreen ? ScreenBounds(target) : WorkBounds(target);
         bool spansSeveralScreens = CoveredScreens(before, monitors) > 1;
-        bool fit = fitToScreen && fullScreen && !spansSeveralScreens;
+        bool fit = (fitToScreen || forceFullScreen) && fullScreen && !spansSeveralScreens;
         Rectangle wanted = Place(current, screen, fit);
 
         // La barre de connexion flottante est repérée avant le déplacement : c'est sa position sur

@@ -97,7 +97,16 @@ public static class RdpFile
                 lines.Add("selectedmonitors:s:" + BuildSelectedMonitors(selection, config));
             }
             lines.Add("singlemoninwindowedmode:i:1");
-            lines.Add("maximizetocurrentdisplays:i:0");
+
+            // Cette ligne décide où le plein écran atterrit quand on le rétablit en cours de
+            // session. À 0, mstsc revient TOUJOURS sur les écrans de selectedmonitors : on peut
+            // déplacer la fenêtre à la main, elle repart sur l'écran de départ dès qu'on la
+            // remet en plein écran. À 1, le plein écran se fait sur l'écran où la fenêtre se
+            // trouve — le déplacement est enfin possible pendant la session.
+            //
+            // Les écrans choisis ne changent pas pour autant : la session s'ouvre toujours sur
+            // selectedmonitors ci-dessus.
+            lines.Add("maximizetocurrentdisplays:i:1");
         }
 
         lines.Add("session bpp:i:32");

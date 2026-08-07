@@ -176,7 +176,7 @@
                                 FontSize="12"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Glyph="&#xE7C4;" />
-                            <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="Une session déjà ouverte se déplace d'un écran à l'autre sans se reconnecter : page Sessions, ou Ctrl + Alt + Maj + ← / → depuis la session." />
+                            <TextBlock Style="{StaticResource TechnicalTextStyle}" Text="Une session déjà ouverte change d'écran sans se reconnecter : quittez le plein écran, faites glisser la fenêtre sur un autre écran, elle s'y remet en plein écran toute seule (page Sessions pour le régler)." />
                         </StackPanel>
 
                         <InfoBar

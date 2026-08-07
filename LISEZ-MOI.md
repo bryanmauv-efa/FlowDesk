@@ -79,42 +79,62 @@ Les mots de passe ne sont ni demandés, ni affichés, ni enregistrés : c'est Wi
 
 ## Déplacer une session en cours d'utilisation
 
-Une session ouverte en plein écran sur un écran donné **ne se déplace pas à la souris** : `mstsc`
-ne laisse pas attraper sa fenêtre, et il n'existe aucune commande pour lui demander de changer
-d'écran. La seule voie serait de modifier `selectedmonitors` et de se reconnecter — donc de perdre
-la session.
+Le geste suffit : **quittez le plein écran, faites glisser la fenêtre sur un autre écran, lâchez.**
+Elle s'y remet en plein écran toute seule. Rien à cliquer dans l'application, aucun raccourci à
+connaître.
 
-La page **Sessions** liste les sessions réellement ouvertes et les déplace là où vous voulez :
+Deux choses rendent ça possible.
+
+### 1. `maximizetocurrentdisplays:i:1` — la cause du problème
+
+Cette ligne du fichier `.rdp` décide où le plein écran atterrit quand on le rétablit en cours de
+session :
+
+| Valeur | Comportement |
+|---|---|
+| `0` | `mstsc` revient **toujours** sur les écrans de `selectedmonitors`. On peut déplacer la fenêtre à la main : elle repart sur l'écran de départ dès qu'on la remet en plein écran. |
+| `1` | le plein écran se fait sur l'écran **où la fenêtre se trouve**. |
+
+L'application écrit désormais `1`. Les écrans choisis ne changent pas pour autant : la session
+s'ouvre toujours sur ceux de `selectedmonitors`. Comme le réglage est lu à la connexion, il prend
+effet à la **prochaine** ouverture de session.
+
+### 2. Le plein écran automatique
+
+Le réglage ci-dessus corrige `mstsc` pour les prochaines connexions ; l'application, elle, agit
+tout de suite — y compris sur une session déjà ouverte. Dès qu'une fenêtre de session est **posée**
+sur un autre écran, elle est mise en plein écran sur cet écran.
+
+Deux garde-fous évitent toute surprise : on n'agit qu'une fois la fenêtre immobile **et** le bouton
+de la souris relâché, et seulement si l'écran a réellement changé — déplacer une fenêtre à
+l'intérieur de son écran ne déclenche rien. L'interrupteur *Plein écran automatique sur l'écran
+d'arrivée* (page **Sessions**, activé par défaut) le désactive au besoin.
+
+### En secours : une session qu'on ne peut pas attraper du tout
+
+Une session en plein écran n'a ni bordure ni barre de titre : la souris n'a rien à saisir. La page
+**Sessions** la déplace quand même :
 
 - **boutons `1 · Gauche`, `2 · Centre`, `3 · Droite`…** : un bouton par écran, dans le même ordre
   que le plan de la page d'accueil ;
 - **flèches précédent / suivant** : l'écran voisin, en faisant le tour ;
-- **raccourcis clavier, utilisables depuis la session elle-même** :
+- **raccourcis** `Ctrl + Alt + Maj + ← / →` et `Ctrl + Alt + Maj + 1…9`, qui agissent sur la session
+  au premier plan — mais **seulement quand la fenêtre de l'application a le focus** : une session
+  Bureau à distance active capte le clavier avant Windows. C'est précisément pourquoi le plein écran
+  automatique est la voie principale.
 
-| Raccourci | Effet |
-|---|---|
-| `Ctrl + Alt + Maj + ←` / `→` | écran précédent / suivant |
-| `Ctrl + Alt + Maj + 1…9` | écran choisi, numéroté **de gauche à droite** |
-
-Les raccourcis agissent sur la session **au premier plan** — celle dans laquelle vous êtes — et
-restent actifs tant que l'application est ouverte, fenêtre réduite comprise. Depuis l'application,
-c'est la session choisie dans la liste qui est déplacée.
-
-**Rien n'est modifié** : ni la connexion enregistrée, ni son fichier `.rdp`, ni `selectedmonitors`.
+**Rien n'est modifié dans la configuration** : ni la connexion enregistrée, ni `selectedmonitors`.
 Seule la position de la fenêtre change, le temps de cette session — la prochaine ouverture retrouve
 exactement les écrans configurés. La session n'est ni coupée ni rouverte : les applications
 distantes continuent de tourner.
 
 Quelques précisions utiles :
 
-- **Écran d'arrivée de taille différente** : la case *Adapter la fenêtre à la taille de l'écran
-  d'arrivée* (cochée par défaut) redimensionne la fenêtre pour couvrir l'écran ; le serveur suit si
-  la résolution dynamique est active. Décochée, la taille de la session est conservée au pixel près.
+- **Écran d'arrivée de taille différente** : la fenêtre est redimensionnée pour couvrir l'écran ;
+  le serveur suit si la résolution dynamique est active.
 - **Session étalée sur plusieurs écrans** : elle est translatée sans jamais être redimensionnée —
   la réduire à un seul écran changerait la résolution de la session.
-- **Si le raccourci ne remonte pas** : avec l'option *Raccourcis clavier Windows › Dans la session*,
-  le client peut capter la combinaison avant Windows. Les boutons de la page Sessions fonctionnent
-  toujours, et `Ctrl + Alt + Attn` fait sortir du plein écran.
+- **`Ctrl + Alt + Attn`** fait entrer et sortir du plein écran, depuis la session.
 - Chaque déplacement est tracé dans le journal, avec les positions avant et après.
 
 ---
@@ -286,6 +306,7 @@ app\
   Controls\      MonitorMapPanel : place les cartes à l'échelle et à leur position réelle
   Themes\        gabarit de carte partagé (accueil et aperçu), avec liaisons compilées
   Services\      composition, surveillance des écrans, dialogues, pastilles d'identification
+    RdpFollowService.cs  plein écran automatique sur l'écran où la session vient d'être posée
     RdpHotkeyService.cs  raccourcis globaux de déplacement, sur leur propre boucle de messages
   ViewModels\    MVVM (CommunityToolkit.Mvvm)
   Pages\         Accueil, Connexions, Sessions, Partage, Paramètres, À propos
@@ -317,10 +338,14 @@ réutilisable telle quelle.
   retrouverait dans la zone de travail, barre des tâches visible. Le résultat est relu et une
   seconde tentative est faite si `mstsc` a replacé sa fenêtre, puis vérifié — l'interface annonce
   un échec plutôt que de laisser croire à une réussite.
+- Le plein écran automatique n'agit qu'une fois la fenêtre immobile **et** `GetAsyncKeyState`
+  confirmant le bouton de la souris relâché : c'est le seul moyen de savoir qu'un déplacement à la
+  souris est terminé sur la fenêtre d'un autre processus. La position d'arrivée devient la nouvelle
+  référence avant même que le déplacement soit appliqué, ce qui exclut toute boucle.
 - Les raccourcis globaux sont posés par `RegisterHotKey(0, …)` depuis un fil dédié qui a sa propre
   boucle `GetMessage` : détourner le `WndProc` de la fenêtre WinUI suffirait à faire tomber
-  l'interface. Windows traite ses raccourcis avant de livrer la touche à la fenêtre active, donc la
-  combinaison n'est pas envoyée au serveur distant.
+  l'interface. Ils ne remontent cependant pas depuis une session Bureau à distance active, qui
+  installe son propre crochet clavier — d'où le plein écran automatique comme voie principale.
 
 ---
 
