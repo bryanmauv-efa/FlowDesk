@@ -139,12 +139,23 @@ focus, sinon elle partirait dans une autre application. Si la bascule atterrit s
 la ramène sur l'écran demandé sans lui faire perdre son plein écran. En dernier recours seulement,
 la fenêtre couvre l'écran — et l'application le dit au lieu de laisser croire à un plein écran.
 
+**La session est réaffichée.** Windows n'a aucune raison de redessiner une fenêtre qu'un autre
+processus vient de déplacer : elle restait vide à son nouvel emplacement jusqu'au premier clic. La
+fenêtre est donc activée — exactement ce que faisait ce clic — puis son tracé est forcé, fenêtres
+filles comprises, le bureau distant étant l'une d'elles.
+
 **La barre de connexion suit.** Elle est une fenêtre indépendante, pas une fenêtre fille : aucune
-des manœuvres ci-dessus ne l'emmène avec la session, et elle resterait affichée sur l'écran de
-départ. Elle est donc rattrapée après coup, quel que soit le chemin emprunté, et replacée au même
-endroit relatif le long du bord haut de l'écran d'arrivée. Le contrôle est repassé trois fois, de
-plus en plus espacé, parce que `mstsc` replace parfois sa barre après nous — et une barre déjà sur
-le bon écran n'est jamais touchée.
+des manœuvres ci-dessus ne l'emmène avec la session. Pire, `mstsc` la place sur l'écran qu'il
+considère comme celui de la session — celui de `selectedmonitors` — et le fait à la fin de sa
+bascule, donc après nous. Elle est donc **surveillée** après le déplacement et ramenée sur l'écran
+d'arrivée, au même endroit relatif le long du bord haut. La surveillance est bornée : elle s'arrête
+dès que la barre reste en place trois contrôles de suite, et de toute façon au bout de six secondes —
+jamais de lutte sans fin avec le client. Une barre déjà sur le bon écran n'est jamais touchée.
+
+Ces deux rattrapages ne servent que lorsque c'est **nous** qui déplaçons la fenêtre. Une session
+ouverte avec `maximizetocurrentdisplays:i:1` change d'écran par sa propre bascule plein écran :
+`mstsc` sait alors qu'il a changé d'écran, redessine et place sa barre lui-même. D'où l'intérêt de
+reconnecter une fois après une mise à jour.
 
 ### En secours : une session qu'on ne peut pas attraper du tout
 

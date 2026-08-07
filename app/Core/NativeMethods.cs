@@ -175,6 +175,28 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(nint hWnd, int nCmdShow);
 
+    /// <summary>SW_SHOW : afficher sans changer la taille ni la position (l'agrandissement est conservé).</summary>
+    public const int SW_SHOW = 5;
+
+    [DllImport("user32.dll")]
+    public static extern bool BringWindowToTop(nint hWnd);
+
+    public const uint RDW_INVALIDATE = 0x0001;
+    public const uint RDW_ERASE = 0x0004;
+    /// <summary>Le cadre aussi : sans lui, une bordure fantôme peut rester à l'ancienne place.</summary>
+    public const uint RDW_FRAME = 0x0400;
+    /// <summary>Les fenêtres filles comprises : le bureau distant est l'une d'elles.</summary>
+    public const uint RDW_ALLCHILDREN = 0x0080;
+    /// <summary>Redessiner tout de suite, sans attendre le prochain WM_PAINT.</summary>
+    public const uint RDW_UPDATENOW = 0x0100;
+
+    /// <summary>
+    /// Force le tracé d'une fenêtre. Déplacée de l'extérieur, la fenêtre d'un client Bureau à
+    /// distance ne se redessine pas d'elle-même : elle reste vide jusqu'à la première interaction.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool RedrawWindow(nint hWnd, nint lprcUpdate, nint hrgnUpdate, uint flags);
+
     /// <summary>
     /// WINDOWPLACEMENT. Pour une fenêtre agrandie, <c>rcNormalPosition</c> est sa taille rétablie :
     /// c'est elle qui désigne l'écran, et Windows y refait l'agrandissement. C'est la seule façon

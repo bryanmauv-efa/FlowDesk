@@ -100,14 +100,48 @@ public static class RdpWindowMover
         RdpSessionWindow window, MonitorInfo target, IEnumerable<MonitorInfo> monitors)
     {
         var result = await RelocateAsync(window, target, monitors);
+        if (!result.Success) return result;
+
+        // Déplacée par-derrière, la fenêtre du client ne se redessine pas : elle restait vide
+        // jusqu'au premier clic.
+        await RepaintAsync(window.Handle);
 
         // La barre de connexion est une fenêtre indépendante : aucune des manœuvres ci-dessus ne
-        // l'emmène avec la session. Elle est donc rattrapée après coup, quel que soit le chemin
+        // l'emmène avec la session. Elle est surveillée après coup, quel que soit le chemin
         // emprunté — c'est le seul endroit où le traitement vaut pour les trois cas.
-        if (result.Success)
-            await SettleBarsAsync(window, ScreenBounds(target), monitors);
+        WatchBars(window, ScreenBounds(target), monitors);
 
         return result;
+    }
+
+    /// <summary>
+    /// Réaffiche la session à son nouvel emplacement. Windows n'a aucune raison de redessiner une
+    /// fenêtre qu'un autre processus vient de déplacer : elle restait vide, et il fallait cliquer
+    /// pour la voir apparaître. On refait donc exactement ce que faisait ce clic — activer la
+    /// fenêtre — puis on force le tracé, fenêtres filles comprises : le bureau distant en est une.
+    /// </summary>
+    private static async Task RepaintAsync(nint hwnd)
+    {
+        try
+        {
+            if (!NativeMethods.IsWindow(hwnd)) return;
+
+            NativeMethods.ShowWindow(hwnd, NativeMethods.SW_SHOW);
+            NativeMethods.BringWindowToTop(hwnd);
+            NativeMethods.SetForegroundWindow(hwnd);
+
+            // Laisser l'activation se faire avant de demander le tracé, sinon il porterait sur
+            // l'état précédent.
+            await Task.Delay(60);
+
+            NativeMethods.RedrawWindow(hwnd, 0, 0,
+                NativeMethods.RDW_INVALIDATE | NativeMethods.RDW_ERASE | NativeMethods.RDW_FRAME
+                | NativeMethods.RDW_ALLCHILDREN | NativeMethods.RDW_UPDATENOW);
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"Réaffichage de la session : {ex.Message}");
+        }
     }
 
     private static async Task<RdpMoveResult> RelocateAsync(
@@ -492,41 +526,78 @@ public static class RdpWindowMover
 
     // ------------------------------------------------------------------ barre de connexion
 
-    /// <summary>
-    /// Ramène sur l'écran d'arrivée toute barre de connexion de cette session restée ailleurs.
-    ///
-    /// Trois passes, de plus en plus espacées : mstsc replace ou recrée sa barre pendant la bascule
-    /// en plein écran, et cette bascule prend un temps variable. Les passes suivantes rattrapent
-    /// donc ce qu'il a fait après nous. Une barre déjà sur le bon écran n'est jamais touchée —
-    /// l'utilisateur a pu la déplacer le long du bord haut, autant l'y laisser.
-    /// </summary>
-    private static async Task SettleBarsAsync(
-        RdpSessionWindow window, Rectangle target, IEnumerable<MonitorInfo> monitors)
-    {
-        int[] delays = [150, 350, 700];
+    /// <summary>Déplacement en cours le plus récent : une surveillance périmée s'arrête d'elle-même.</summary>
+    private static int _barWatch;
 
-        foreach (int delay in delays)
+    /// <summary>Rythme et durée de la surveillance de la barre.</summary>
+    private const int BarCheckMs = 400;
+    private const int BarChecks = 15;
+    private const int BarCleanChecksBeforeStop = 3;
+
+    /// <summary>
+    /// Surveille la barre de connexion et la ramène sur l'écran d'arrivée tant que mstsc l'en
+    /// écarte.
+    ///
+    /// Une seule passe ne suffit pas : mstsc place sa barre sur l'écran qu'il considère comme celui
+    /// de la session — celui de <c>selectedmonitors</c> — et le fait à la fin de sa bascule en plein
+    /// écran, donc après nous, au bout d'un temps qui dépend de la liaison. La surveillance est
+    /// bornée : elle s'arrête dès que la barre reste en place trois contrôles de suite, et de toute
+    /// façon au bout de six secondes. Jamais de lutte sans fin avec le client.
+    ///
+    /// Elle ne bloque pas le déplacement : la session est déjà utilisable pendant ce temps.
+    /// </summary>
+    private static void WatchBars(RdpSessionWindow window, Rectangle target, IEnumerable<MonitorInfo> monitors)
+    {
+        // La liste est figée ici : celle du service peut être remplacée entre deux contrôles.
+        var screens = monitors.ToList();
+        int watch = Interlocked.Increment(ref _barWatch);
+        _ = WatchBarsAsync(window, target, screens, watch);
+    }
+
+    private static async Task WatchBarsAsync(
+        RdpSessionWindow window, Rectangle target, List<MonitorInfo> monitors, int watch)
+    {
+        int clean = 0;
+        int corrections = 0;
+
+        for (int check = 0; check < BarChecks && clean < BarCleanChecksBeforeStop; check++)
         {
-            await Task.Delay(delay);
+            await Task.Delay(BarCheckMs);
+
+            // Un déplacement plus récent a pris la main : cette surveillance n'a plus lieu d'être.
+            if (Volatile.Read(ref _barWatch) != watch) return;
+            if (!NativeMethods.IsWindow(window.Handle)) return;
 
             try
             {
+                int moved = 0;
                 foreach (nint bar in RdpWindowFinder.FindBars(window.ProcessId, window.Handle))
                 {
                     Rectangle rect = CurrentRect(bar);
                     if (rect.Width <= 0) continue;
 
+                    // Une barre déjà sur le bon écran n'est jamais touchée : elle a pu être déplacée
+                    // le long du bord haut, autant l'y laisser.
                     var centre = new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2);
                     if (target.Contains(centre)) continue;
 
                     BringBarToScreen(bar, rect, target, monitors);
+                    moved++;
                 }
+
+                if (moved == 0) clean++;
+                else { clean = 0; corrections += moved; }
             }
             catch (Exception ex)
             {
                 Log.Write($"Barre de connexion : {ex.Message}");
+                return;
             }
         }
+
+        if (corrections > 0)
+            Log.Write($"Barre de connexion replacée {corrections} fois sur l'écran d'arrivée"
+                    + $"{(clean < BarCleanChecksBeforeStop ? " — mstsc continue de la reprendre." : ".")}");
     }
 
     private static void BringBarToScreen(
@@ -550,6 +621,11 @@ public static class RdpWindowMover
             Log.Write($"Barre de connexion : SetWindowPos a échoué (erreur {Marshal.GetLastWin32Error()}).");
             return;
         }
+
+        // Elle non plus ne se redessine pas d'elle-même à son nouvel emplacement.
+        NativeMethods.RedrawWindow(bar, 0, 0,
+            NativeMethods.RDW_INVALIDATE | NativeMethods.RDW_ERASE | NativeMethods.RDW_FRAME
+            | NativeMethods.RDW_ALLCHILDREN | NativeMethods.RDW_UPDATENOW);
 
         Log.Write($"Barre de connexion ramenée sur l'écran d'arrivée : {Describe(rect)} → ({x},{y}).");
     }
