@@ -196,8 +196,7 @@ public sealed class RdpFollowService
             Log.Write($"Suivi automatique : « {window.Server} » posée sur l'écran {target.Order} "
                     + $"{target.PositionLabel} — mise en plein écran.");
 
-            var result = await RdpWindowMover.MoveToAsync(
-                window, target, _monitors.Monitors, fitToScreen: true, forceFullScreen: true);
+            var result = await RdpWindowMover.FullScreenOnAsync(window, target, _monitors.Monitors);
 
             // La position d'arrivée devient la référence : sans ça, le battement suivant y verrait
             // un déplacement de plus.

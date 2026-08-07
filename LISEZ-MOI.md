@@ -105,6 +105,16 @@ Le réglage ci-dessus corrige `mstsc` pour les prochaines connexions ; l'applica
 tout de suite — y compris sur une session déjà ouverte. Dès qu'une fenêtre de session est **posée**
 sur un autre écran, elle est mise en plein écran sur cet écran.
 
+C'est bien le plein écran de `mstsc` qui est demandé, pas une fenêtre agrandie aux dimensions de
+l'écran : celle-ci garderait sa barre de titre et ses bordures, et le bureau distant resterait plus
+petit que l'écran. L'application envoie donc exactement la commande du bouton **Agrandir** de la
+barre de connexion, puis attend la disparition de la barre de titre — seul signe fiable que la
+bascule a eu lieu, la renégociation avec le serveur pouvant prendre un instant.
+
+Si `mstsc` refuse ou repart sur l'écran d'origine (session ouverte avant la correction du `.rdp`),
+c'est détecté : la session est ramenée sur l'écran demandé, qu'elle couvre alors avec ses bordures,
+et l'application indique qu'une reconnexion réglera le problème.
+
 Deux garde-fous évitent toute surprise : on n'agit qu'une fois la fenêtre immobile **et** le bouton
 de la souris relâché, et seulement si l'écran a réellement changé — déplacer une fenêtre à
 l'intérieur de son écran ne déclenche rien. L'interrupteur *Plein écran automatique sur l'écran
@@ -342,6 +352,11 @@ réutilisable telle quelle.
   confirmant le bouton de la souris relâché : c'est le seul moyen de savoir qu'un déplacement à la
   souris est terminé sur la fenêtre d'un autre processus. La position d'arrivée devient la nouvelle
   référence avant même que le déplacement soit appliqué, ce qui exclut toute boucle.
+- Le plein écran est demandé par `WM_SYSCOMMAND` / `SC_MAXIMIZE` — le message même du bouton
+  « Agrandir » — et jamais par `SendMessage`, qui bloquerait l'interface le temps qu'un client
+  occupé réponde. Le résultat est attendu puis vérifié, avec repli et message explicite en cas
+  d'échec : redimensionner la fenêtre nous-mêmes ne donnerait qu'une fenêtre à la taille de l'écran,
+  bordures comprises.
 - Les raccourcis globaux sont posés par `RegisterHotKey(0, …)` depuis un fil dédié qui a sa propre
   boucle `GetMessage` : détourner le `WndProc` de la fenêtre WinUI suffirait à faire tomber
   l'interface. Ils ne remontent cependant pas depuis une session Bureau à distance active, qui

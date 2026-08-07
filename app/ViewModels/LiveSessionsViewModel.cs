@@ -283,10 +283,14 @@ public sealed partial class LiveSessionsViewModel : ObservableObject
         _moving = true;
         try
         {
+            // La bascule en plein écran demande une renégociation avec le serveur : elle peut durer
+            // une seconde ou deux, autant le dire pendant ce temps-là.
+            StatusText = $"Mise en plein écran de « {window.Server} » sur l'écran "
+                       + $"{target.Order} {target.PositionLabel}…";
+
             // Un déplacement demandé explicitement met toujours la session en plein écran sur
             // l'écran d'arrivée : c'est ce que veut dire « déplacer vers cet écran ».
-            var result = await RdpWindowMover.MoveToAsync(
-                window, target, _monitors.Monitors, fitToScreen: true, forceFullScreen: true);
+            var result = await RdpWindowMover.FullScreenOnAsync(window, target, _monitors.Monitors);
             StatusText = result.Message;
         }
         catch (Exception ex)

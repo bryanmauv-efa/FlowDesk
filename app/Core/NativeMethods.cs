@@ -175,6 +175,18 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(nint hWnd, int nCmdShow);
 
+    public const uint WM_SYSCOMMAND = 0x0112;
+    /// <summary>Ce que le bouton « Agrandir » d'une barre de titre envoie réellement.</summary>
+    public const int SC_MAXIMIZE = 0xF030;
+    public const int SC_RESTORE = 0xF120;
+
+    /// <summary>
+    /// Poste un message sans attendre de réponse. Jamais SendMessage vers la fenêtre d'un autre
+    /// processus : un client occupé bloquerait l'interface le temps de son traitement.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "PostMessageW", SetLastError = true)]
+    public static extern bool PostMessage(nint hWnd, uint Msg, nuint wParam, nint lParam);
+
     public const int VK_LBUTTON = 0x01;
 
     /// <summary>

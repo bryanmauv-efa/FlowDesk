@@ -179,6 +179,140 @@ public static class RdpWindowMover
         };
     }
 
+    /// <summary>
+    /// Met la session en <b>vrai</b> plein écran sur l'écran demandé.
+    ///
+    /// Couvrir l'écran ne suffit pas : une fenêtre garde sa barre de titre et ses bordures, et le
+    /// bureau distant reste plus petit que l'écran. Le seul vrai plein écran est celui de mstsc,
+    /// celui qu'on obtient en agrandissant la fenêtre. On le lui demande donc exactement comme le
+    /// fait le bouton « Agrandir » de la barre de connexion, puis on vérifie où il a atterri.
+    ///
+    /// Ce plein écran suit l'écran de la fenêtre grâce à <c>maximizetocurrentdisplays:i:1</c>. Une
+    /// session ouverte avant que ce réglage existe repart sur l'écran d'origine : c'est détecté, on
+    /// revient en arrière, et on se contente alors de couvrir l'écran demandé en le disant.
+    /// </summary>
+    public static async Task<RdpMoveResult> FullScreenOnAsync(
+        RdpSessionWindow window, MonitorInfo target, IEnumerable<MonitorInfo> monitors)
+    {
+        nint hwnd = window.Handle;
+        if (!NativeMethods.IsWindow(hwnd))
+            return Failed("Cette fenêtre n'existe plus — actualisez la liste des sessions ouvertes.");
+
+        Rectangle screen = ScreenBounds(target);
+        string where = $"écran {target.Order} {target.PositionLabel}";
+
+        // Déjà sans bordure : la session est en plein écran mstsc, il suffit de la poser sur
+        // l'écran demandé. C'est le cas de celle qu'on ne peut pas attraper à la souris.
+        if (window.FullScreen)
+            return await MoveToAsync(window, target, monitors, fitToScreen: true, forceFullScreen: true);
+
+        // Plus grande que l'écran visé : un agrandissement porterait sur plusieurs écrans. On se
+        // contente de couvrir celui qui est demandé.
+        if (window.Bounds.Width > screen.Width || window.Bounds.Height > screen.Height)
+            return await MoveToAsync(window, target, monitors, fitToScreen: true, forceFullScreen: true);
+
+        // L'agrandissement s'applique aux écrans que la fenêtre occupe : on la rentre d'abord
+        // entièrement dans l'écran visé — en la translatant seulement, donc sans toucher à la
+        // résolution de la session.
+        if (!screen.Contains(window.Bounds))
+        {
+            MoveInside(hwnd, window.Bounds, screen);
+            await Task.Delay(100);
+        }
+
+        bool borderless = await AskNativeFullScreenAsync(hwnd);
+        Rectangle after = CurrentRect(hwnd);
+
+        if (borderless && MajorityScreen(after, monitors) == screen)
+        {
+            Log.Write($"Plein écran natif obtenu pour « {window.Title} » sur {where} : {Describe(after)}");
+            return new RdpMoveResult
+            {
+                Success = true,
+                Before = window.Bounds,
+                After = after,
+                Message = $"« {window.Server} » est en plein écran sur l'{where}."
+            };
+        }
+
+        // Échec : soit mstsc n'a pas basculé, soit il est reparti sur les écrans d'origine.
+        Log.Write($"Plein écran natif refusé pour « {window.Title} » : {Describe(after)}"
+                + $"{(borderless ? "" : " (bordures conservées)")} — repli sur la couverture de l'{where}.");
+
+        if (borderless)
+        {
+            // Il est parti en plein écran ailleurs : on repasse en fenêtre pour pouvoir le poser.
+            NativeMethods.PostMessage(hwnd, NativeMethods.WM_SYSCOMMAND, (nuint)NativeMethods.SC_RESTORE, 0);
+            await Task.Delay(400);
+        }
+
+        var fresh = RdpWindowFinder.Reread(hwnd) ?? window;
+        var fallback = await MoveToAsync(fresh, target, monitors, fitToScreen: true, forceFullScreen: true);
+
+        return new RdpMoveResult
+        {
+            Success = fallback.Success,
+            Before = window.Bounds,
+            After = fallback.After,
+            Message = fallback.Success
+                ? $"« {window.Server} » couvre l'{where}, mais garde ses bordures : mstsc ramène son "
+                  + "plein écran sur l'écran d'origine. Reconnectez la session — le nouveau fichier "
+                  + ".rdp corrige ce comportement."
+                : fallback.Message
+        };
+    }
+
+    /// <summary>
+    /// Demande son plein écran à mstsc et attend qu'il l'ait pris. La commande système est ce
+    /// qu'envoie le bouton « Agrandir » : c'est elle que le client écoute pour basculer. Si rien ne
+    /// bouge, l'agrandissement est fait à sa place, ce qui déclenche la même bascule.
+    /// </summary>
+    private static async Task<bool> AskNativeFullScreenAsync(nint hwnd)
+    {
+        NativeMethods.PostMessage(hwnd, NativeMethods.WM_SYSCOMMAND, (nuint)NativeMethods.SC_MAXIMIZE, 0);
+        if (await WaitForBorderlessAsync(hwnd, 800)) return true;
+
+        NativeMethods.ShowWindow(hwnd, NativeMethods.SW_MAXIMIZE);
+        return await WaitForBorderlessAsync(hwnd, 900);
+    }
+
+    /// <summary>
+    /// Attend la disparition de la barre de titre, seul signe fiable que mstsc est bien passé en
+    /// plein écran. L'attente est active : la bascule demande une renégociation avec le serveur,
+    /// dont la durée dépend de la liaison — un délai fixe serait tantôt trop court, tantôt inutile.
+    /// </summary>
+    private static async Task<bool> WaitForBorderlessAsync(nint hwnd, int timeoutMs)
+    {
+        for (int waited = 0; waited < timeoutMs; waited += 100)
+        {
+            await Task.Delay(100);
+            if (!NativeMethods.IsWindow(hwnd)) return false;
+            if (IsBorderless(hwnd)) return true;
+        }
+        return false;
+    }
+
+    private static bool IsBorderless(nint hwnd)
+    {
+        uint style = NativeMethods.GetWindowStyles(hwnd, NativeMethods.GWL_STYLE);
+        return (style & (NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME)) == 0;
+    }
+
+    private static Rectangle CurrentRect(nint hwnd) =>
+        NativeMethods.GetWindowRect(hwnd, out var rect) ? ToRectangle(rect) : Rectangle.Empty;
+
+    /// <summary>Rentre la fenêtre dans l'écran sans la redimensionner : le plein écran fera le reste.</summary>
+    private static void MoveInside(nint hwnd, Rectangle window, Rectangle screen)
+    {
+        int width = Math.Min(window.Width, screen.Width);
+        int height = Math.Min(window.Height, screen.Height);
+        int x = Math.Clamp(window.X, screen.Left, screen.Right - width);
+        int y = Math.Clamp(window.Y, screen.Top, screen.Bottom - height);
+
+        NativeMethods.SetWindowPos(hwnd, 0, x, y, 0, 0,
+            NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+    }
+
     /// <summary>Met la session au premier plan, sur l'écran où elle se trouve.</summary>
     public static bool Activate(RdpSessionWindow window)
     {
