@@ -175,19 +175,47 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(nint hWnd, int nCmdShow);
 
-    public const uint WM_SYSCOMMAND = 0x0112;
-    /// <summary>Ce que le bouton « Agrandir » d'une barre de titre envoie réellement.</summary>
-    public const int SC_MAXIMIZE = 0xF030;
-    public const int SC_RESTORE = 0xF120;
-
     /// <summary>
-    /// Poste un message sans attendre de réponse. Jamais SendMessage vers la fenêtre d'un autre
-    /// processus : un client occupé bloquerait l'interface le temps de son traitement.
+    /// WINDOWPLACEMENT. Pour une fenêtre agrandie, <c>rcNormalPosition</c> est sa taille rétablie :
+    /// c'est elle qui désigne l'écran, et Windows y refait l'agrandissement. C'est la seule façon
+    /// propre de faire changer d'écran une fenêtre agrandie — SetWindowPos se fait replacer.
     /// </summary>
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "PostMessageW", SetLastError = true)]
-    public static extern bool PostMessage(nint hWnd, uint Msg, nuint wParam, nint lParam);
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINDOWPLACEMENT
+    {
+        public int length;
+        public int flags;
+        public int showCmd;
+        public int ptMinPositionX;
+        public int ptMinPositionY;
+        public int ptMaxPositionX;
+        public int ptMaxPositionY;
+        public RECT rcNormalPosition;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool GetWindowPlacement(nint hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetWindowPlacement(nint hWnd, ref WINDOWPLACEMENT lpwndpl);
 
     public const int VK_LBUTTON = 0x01;
+    public const byte VK_CONTROL = 0x11;
+    /// <summary>VK_MENU : la touche Alt.</summary>
+    public const byte VK_MENU = 0x12;
+    /// <summary>VK_CANCEL : ce que produit la touche Attn (Pause) pressée avec Ctrl.</summary>
+    public const byte VK_CANCEL = 0x03;
+    public const uint KEYEVENTF_KEYUP = 0x0002;
+
+    /// <summary>
+    /// Frappe clavier synthétique. Sert uniquement à Ctrl + Alt + Attn, la bascule plein écran de
+    /// mstsc : c'est la seule commande qui la déclenche, agrandir la fenêtre ne suffit pas.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    public static extern uint MapVirtualKey(uint uCode, uint uMapType);
 
     /// <summary>
     /// Bouton de la souris encore enfoncé ? Le seul moyen de savoir qu'un déplacement à la souris

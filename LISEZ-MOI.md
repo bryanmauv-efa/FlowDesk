@@ -105,20 +105,39 @@ Le réglage ci-dessus corrige `mstsc` pour les prochaines connexions ; l'applica
 tout de suite — y compris sur une session déjà ouverte. Dès qu'une fenêtre de session est **posée**
 sur un autre écran, elle est mise en plein écran sur cet écran.
 
-C'est bien le plein écran de `mstsc` qui est demandé, pas une fenêtre agrandie aux dimensions de
-l'écran : celle-ci garderait sa barre de titre et ses bordures, et le bureau distant resterait plus
-petit que l'écran. L'application envoie donc exactement la commande du bouton **Agrandir** de la
-barre de connexion, puis attend la disparition de la barre de titre — seul signe fiable que la
-bascule a eu lieu, la renégociation avec le serveur pouvant prendre un instant.
-
-Si `mstsc` refuse ou repart sur l'écran d'origine (session ouverte avant la correction du `.rdp`),
-c'est détecté : la session est ramenée sur l'écran demandé, qu'elle couvre alors avec ses bordures,
-et l'application indique qu'une reconnexion réglera le problème.
-
 Deux garde-fous évitent toute surprise : on n'agit qu'une fois la fenêtre immobile **et** le bouton
 de la souris relâché, et seulement si l'écran a réellement changé — déplacer une fenêtre à
 l'intérieur de son écran ne déclenche rien. L'interrupteur *Plein écran automatique sur l'écran
 d'arrivée* (page **Sessions**, activé par défaut) le désactive au besoin.
+
+### Comment le plein écran est obtenu — et pourquoi c'est le point délicat
+
+Le plein écran de `mstsc` n'est pas une fenêtre sans bordure aux dimensions de l'écran. C'est une
+fenêtre **agrandie dont le cadre dépasse hors de l'écran**, `mstsc` répondant à `WM_GETMINMAXINFO`
+pour couvrir l'écran entier et non la seule zone de travail. Deux pièges en découlent, et deux
+règles :
+
+- **on ne redimensionne jamais un plein écran.** L'ajuster aux dimensions exactes de l'écran fait
+  rentrer sa barre de titre dans l'écran : on obtient une grande fenêtre bordée. Un plein écran est
+  donc *translaté*, en reproduisant son débord de chaque côté sur l'écran d'arrivée.
+- **une fenêtre agrandie ne se déplace pas avec `SetWindowPos`** : Windows la replace sur son écran.
+  Il faut `SetWindowPlacement`, qui déplace la *taille rétablie* et laisse Windows refaire
+  l'agrandissement sur le nouvel écran — `mstsc` y rejoue sa règle et retrouve son plein écran.
+
+Trois cas, donc, choisis d'après l'état réel de la fenêtre et tracés dans le journal :
+
+| État de la fenêtre | Méthode |
+|---|---|
+| agrandie (plein écran `mstsc`) | `SetWindowPlacement` sur l'écran visé |
+| couvre son écran sans être agrandie | translation, débord conservé |
+| vraie fenêtre | `Ctrl + Alt + Attn`, la seule commande qui fait basculer `mstsc` |
+
+Agrandir une session en fenêtre ne la met **pas** en plein écran : `mstsc` ne bascule que sur
+`Ctrl + Alt + Attn`. Cette frappe est donc envoyée telle quelle — et seulement si la session a le
+focus, sinon elle partirait dans une autre application. Si la bascule atterrit sur un autre écran
+(session ouverte avant la correction du `.rdp`), la session est alors agrandie : `SetWindowPlacement`
+la ramène sur l'écran demandé sans lui faire perdre son plein écran. En dernier recours seulement,
+la fenêtre couvre l'écran — et l'application le dit au lieu de laisser croire à un plein écran.
 
 ### En secours : une session qu'on ne peut pas attraper du tout
 
@@ -352,11 +371,12 @@ réutilisable telle quelle.
   confirmant le bouton de la souris relâché : c'est le seul moyen de savoir qu'un déplacement à la
   souris est terminé sur la fenêtre d'un autre processus. La position d'arrivée devient la nouvelle
   référence avant même que le déplacement soit appliqué, ce qui exclut toute boucle.
-- Le plein écran est demandé par `WM_SYSCOMMAND` / `SC_MAXIMIZE` — le message même du bouton
-  « Agrandir » — et jamais par `SendMessage`, qui bloquerait l'interface le temps qu'un client
-  occupé réponde. Le résultat est attendu puis vérifié, avec repli et message explicite en cas
-  d'échec : redimensionner la fenêtre nous-mêmes ne donnerait qu'une fenêtre à la taille de l'écran,
-  bordures comprises.
+- Le succès n'est jamais supposé : après chaque manœuvre, on attend que la fenêtre **couvre l'écran
+  visé** (`Contains`), seul signe qui vaille quelle que soit la façon dont le client fabrique son
+  plein écran. L'attente est active, la renégociation avec le serveur dépendant de la liaison.
+- Chaque déplacement journalise l'état réel de la fenêtre — rectangle, bordures, agrandie ou non,
+  écrans occupés — puis la méthode retenue. C'est ce qui permet de savoir, sur un poste donné, ce
+  que fait vraiment `mstsc` au lieu de le supposer.
 - Les raccourcis globaux sont posés par `RegisterHotKey(0, …)` depuis un fil dédié qui a sa propre
   boucle `GetMessage` : détourner le `WndProc` de la fenêtre WinUI suffirait à faire tomber
   l'interface. Ils ne remontent cependant pas depuis une session Bureau à distance active, qui

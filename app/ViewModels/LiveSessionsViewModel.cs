@@ -290,7 +290,7 @@ public sealed partial class LiveSessionsViewModel : ObservableObject
 
             // Un déplacement demandé explicitement met toujours la session en plein écran sur
             // l'écran d'arrivée : c'est ce que veut dire « déplacer vers cet écran ».
-            var result = await RdpWindowMover.FullScreenOnAsync(window, target, _monitors.Monitors);
+            var result = await RdpWindowMover.MoveToAsync(window, target, _monitors.Monitors);
             StatusText = result.Message;
         }
         catch (Exception ex)

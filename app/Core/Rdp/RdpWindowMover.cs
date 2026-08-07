@@ -9,17 +9,34 @@ public sealed class RdpMoveResult
     public required string Message { get; init; }
     public Rectangle Before { get; init; }
     public Rectangle After { get; init; }
+
+    /// <summary>Comment le déplacement a été obtenu : tracé dans le journal.</summary>
+    public string Strategy { get; init; } = "";
 }
 
 /// <summary>
-/// Déplace une session Bureau à distance <b>déjà ouverte</b> d'un écran à l'autre.
+/// Déplace une session Bureau à distance <b>déjà ouverte</b> d'un écran à l'autre, en gardant son
+/// plein écran. Rien n'est réécrit : ni le fichier .rdp, ni <c>selectedmonitors</c>, ni la connexion
+/// enregistrée.
 ///
-/// Rien n'est réécrit : ni le fichier .rdp, ni <c>selectedmonitors</c>, ni la connexion
-/// enregistrée. Seule la position de la fenêtre change, exactement comme si Windows l'avait
-/// déplacée — la prochaine ouverture retrouvera donc les écrans configurés.
+/// Tout tient à une chose : <b>comment mstsc fait son plein écran</b>. Ce n'est pas une fenêtre sans
+/// bordure aux dimensions de l'écran, c'est une fenêtre <b>agrandie</b> dont le cadre — barre de
+/// titre comprise — dépasse hors de l'écran, mstsc répondant à WM_GETMINMAXINFO pour couvrir
+/// l'écran entier et non la seule zone de travail. Deux conséquences dictent tout ce fichier :
 ///
-/// C'est la seule voie possible : en plein écran multi-écrans, mstsc ne laisse pas attraper sa
-/// fenêtre à la souris, et il n'existe aucune commande pour lui demander de changer d'écran.
+/// <list type="bullet">
+///   <item>la <b>redimensionner</b> aux dimensions exactes de l'écran fait rentrer sa barre de titre
+///         dans l'écran : on obtient une grande fenêtre bordée, pas un plein écran. On ne
+///         redimensionne donc jamais un plein écran — on le translate en conservant son débord.</item>
+///   <item>une fenêtre agrandie ne se déplace pas avec SetWindowPos : Windows la replace sur son
+///         écran. Il faut passer par <c>SetWindowPlacement</c>, qui déplace la taille rétablie et
+///         laisse Windows refaire l'agrandissement sur le nouvel écran — mstsc y rejoue sa règle et
+///         retrouve son plein écran.</item>
+/// </list>
+///
+/// Une session simplement en fenêtre, elle, ne bascule pas en plein écran en l'agrandissant :
+/// seule <c>Ctrl + Alt + Attn</c> le fait. C'est donc cette frappe qui est demandée, et uniquement
+/// si la session a le focus.
 /// </summary>
 public static class RdpWindowMover
 {
@@ -29,13 +46,10 @@ public static class RdpWindowMover
     /// <summary>Part d'un écran qu'une fenêtre doit couvrir pour compter comme « présente dessus ».</summary>
     private const double CoverageRatio = 0.25;
 
-    /// <summary>Coordonnées à utiliser pour poser une fenêtre en plein écran sur cet écran.</summary>
-    private static Rectangle ScreenBounds(MonitorInfo monitor) =>
-        monitor.WindowBounds is { Width: > 0, Height: > 0 } ? monitor.WindowBounds : monitor.LayoutBounds;
+    /// <summary>Temps laissé à mstsc pour renégocier avec le serveur et redessiner.</summary>
+    private const int FullScreenTimeoutMs = 1800;
 
-    /// <summary>Zone hors barre des tâches, pour une session en fenêtre.</summary>
-    private static Rectangle WorkBounds(MonitorInfo monitor) =>
-        monitor.WindowWorkArea is { Width: > 0, Height: > 0 } ? monitor.WindowWorkArea : ScreenBounds(monitor);
+    // ------------------------------------------------------------------ écrans
 
     /// <summary>Coordonnées de l'écran entier : celles qui servent à poser une fenêtre dessus.</summary>
     public static Rectangle BoundsOf(MonitorInfo monitor) => ScreenBounds(monitor);
@@ -70,23 +84,20 @@ public static class RdpWindowMover
         var current = CurrentMonitor(window, ordered);
         int index = current is null ? 0 : Math.Max(0, ordered.IndexOf(current));
 
-        // Le tour de tous les écrans, sans jamais se retrouver bloqué au bord.
+        // Le tour de tous les écrans, sans jamais rester bloqué au bord.
         int next = ((index + direction) % ordered.Count + ordered.Count) % ordered.Count;
         return ordered[next];
     }
 
+    // ------------------------------------------------------------------ déplacement
+
     /// <summary>
-    /// Pose la fenêtre sur l'écran demandé. <paramref name="fitToScreen"/> autorise le
-    /// redimensionnement quand l'écran d'arrivée n'a pas la même taille ; une session étalée sur
-    /// plusieurs écrans n'est jamais redimensionnée, elle est seulement translatée.
-    ///
-    /// <paramref name="forceFullScreen"/> traite la fenêtre comme un plein écran même si elle a
-    /// une barre de titre : elle couvre alors l'écran d'arrivée en entier. C'est ce que demande le
-    /// suivi automatique, quand on vient de faire glisser une session sur un autre écran.
+    /// Pose la session sur l'écran demandé, en plein écran. La méthode est choisie d'après l'état
+    /// réel de la fenêtre — les trois cas sont journalisés, ce qui permet de savoir sur un poste
+    /// donné laquelle a servi.
     /// </summary>
     public static async Task<RdpMoveResult> MoveToAsync(
-        RdpSessionWindow window, MonitorInfo target, IEnumerable<MonitorInfo> monitors,
-        bool fitToScreen, bool forceFullScreen = false)
+        RdpSessionWindow window, MonitorInfo target, IEnumerable<MonitorInfo> monitors)
     {
         nint hwnd = window.Handle;
         if (!NativeMethods.IsWindow(hwnd))
@@ -99,39 +110,131 @@ public static class RdpWindowMover
             await Task.Delay(150);
         }
 
-        if (!NativeMethods.GetWindowRect(hwnd, out var initial))
+        Rectangle before = CurrentRect(hwnd);
+        if (before.Width <= 0)
             return Failed("La position actuelle de la fenêtre n'a pas pu être lue.");
-        Rectangle before = ToRectangle(initial);
 
-        // Plein écran au sens de ce qui compte ici : la fenêtre couvre un écran entier, barre des
-        // tâches comprise. L'absence de bordure suffit d'ordinaire à le dire, mais un client qui
-        // garderait un style de bordure en plein écran ne doit pas être pris pour une fenêtre
-        // ordinaire — on se fie donc aussi à ce qui est réellement recouvert.
-        bool fullScreen = forceFullScreen || window.FullScreen || CoversAnyScreen(before, monitors);
+        Rectangle screen = ScreenBounds(target);
+        var source = MonitorOf(before, monitors);
+        Rectangle sourceScreen = source is null ? before : ScreenBounds(source);
 
-        // Tant qu'elle est agrandie, Windows garde la fenêtre sur son écran : il faut la rétablir,
-        // la déplacer, puis l'agrandir de nouveau sur l'écran d'arrivée. Une session en plein écran
-        // ne passe jamais par là : rétablir puis réagrandir la ramènerait à la zone de travail,
-        // c'est-à-dire barre des tâches visible et plein écran perdu.
-        bool maximized = !fullScreen && NativeMethods.IsZoomed(hwnd);
-        Rectangle current = before;
-        if (maximized)
+        bool zoomed = NativeMethods.IsZoomed(hwnd);
+        bool coversItsScreen = before.Contains(sourceScreen);
+        int spanned = CoveredScreens(before, monitors);
+
+        Log.Write($"Déplacement de « {window.Title} » vers écran {target.Order} {target.PositionLabel} — "
+                + $"état : {Describe(before)}, "
+                + $"{(IsBorderless(hwnd) ? "sans bordure" : "avec bordure")}, "
+                + $"{(zoomed ? "agrandie" : "non agrandie")}, "
+                + $"couvre son écran : {(coversItsScreen ? "oui" : "non")}, écrans occupés : {spanned}");
+
+        // Session étalée sur plusieurs écrans : translation pure, sa taille ne doit pas bouger.
+        if (spanned > 1)
+            return await TranslateAsync(window, before, sourceScreen, target, monitors,
+                "translation (session multi-écrans)");
+
+        // A. Plein écran de mstsc, c'est-à-dire fenêtre agrandie : c'est Windows qui doit refaire la
+        //    géométrie sur l'écran visé, sinon il la ramènerait sur celui de départ.
+        if (zoomed)
         {
-            NativeMethods.ShowWindow(hwnd, NativeMethods.SW_RESTORE);
-            await Task.Delay(150);
-            if (NativeMethods.GetWindowRect(hwnd, out var restored)) current = ToRectangle(restored);
+            var maximised = await ReMaximiseAsync(window, before, target, monitors);
+            if (maximised is not null) return maximised;
+
+            // Échec : on relit l'état, il a pu changer, avant de tenter la translation.
+            before = CurrentRect(hwnd);
+            source = MonitorOf(before, monitors);
+            sourceScreen = source is null ? before : ScreenBounds(source);
+            coversItsScreen = before.Contains(sourceScreen);
         }
 
-        Rectangle screen = fullScreen ? ScreenBounds(target) : WorkBounds(target);
-        bool spansSeveralScreens = CoveredScreens(before, monitors) > 1;
-        bool fit = (fitToScreen || forceFullScreen) && fullScreen && !spansSeveralScreens;
-        Rectangle wanted = Place(current, screen, fit);
+        // B. Couvre déjà son écran sans être agrandie : plein écran sans bordure, ou cadre débordant
+        //    hors de l'écran. Dans les deux cas, on translate en conservant exactement ce débord.
+        if (coversItsScreen)
+            return await TranslateAsync(window, before, sourceScreen, target, monitors,
+                "translation du plein écran");
 
-        // La barre de connexion flottante est repérée avant le déplacement : c'est sa position sur
-        // l'écran de départ qui permet de la reconnaître.
-        List<nint> bars = fullScreen
-            ? RdpWindowFinder.FindBars(window.ProcessId, MajorityScreen(before, monitors), hwnd)
-            : [];
+        // C. Vraie fenêtre : la poser sur l'écran visé, puis demander à mstsc son plein écran.
+        return await WindowToFullScreenAsync(window, before, target, monitors);
+    }
+
+    /// <summary>
+    /// Cas A : refaire l'agrandissement sur l'écran visé. On déplace la <b>taille rétablie</b> vers
+    /// cet écran — c'est elle qui dit à Windows où agrandir — puis on redemande l'agrandissement.
+    /// Renvoie null si la manœuvre n'a pas abouti, pour laisser essayer autrement.
+    /// </summary>
+    private static async Task<RdpMoveResult?> ReMaximiseAsync(
+        RdpSessionWindow window, Rectangle before, MonitorInfo target, IEnumerable<MonitorInfo> monitors)
+    {
+        nint hwnd = window.Handle;
+        var placement = new NativeMethods.WINDOWPLACEMENT
+        {
+            length = Marshal.SizeOf<NativeMethods.WINDOWPLACEMENT>()
+        };
+
+        if (!NativeMethods.GetWindowPlacement(hwnd, ref placement))
+        {
+            Log.Write($"GetWindowPlacement a échoué (erreur {Marshal.GetLastWin32Error()}).");
+            return null;
+        }
+
+        Rectangle work = WorkBounds(target);
+        Rectangle normal = ToRectangle(placement.rcNormalPosition);
+
+        // La taille rétablie est conservée telle quelle, seulement recentrée sur l'écran visé : la
+        // session reste ce qu'elle était si l'utilisateur quitte le plein écran ensuite.
+        int width = normal.Width > 0 ? Math.Min(normal.Width, work.Width) : work.Width * 3 / 4;
+        int height = normal.Height > 0 ? Math.Min(normal.Height, work.Height) : work.Height * 3 / 4;
+        placement.rcNormalPosition = FromRectangle(new Rectangle(
+            work.X + (work.Width - width) / 2, work.Y + (work.Height - height) / 2, width, height));
+        placement.showCmd = NativeMethods.SW_MAXIMIZE;
+
+        if (!NativeMethods.SetWindowPlacement(hwnd, ref placement))
+        {
+            Log.Write($"SetWindowPlacement a échoué (erreur {Marshal.GetLastWin32Error()}).");
+            return null;
+        }
+
+        Rectangle screen = ScreenBounds(target);
+        if (!await WaitForCoverageAsync(hwnd, screen, 900))
+        {
+            Log.Write($"SetWindowPlacement n'a pas couvert l'écran visé : {Describe(CurrentRect(hwnd))}.");
+            return null;
+        }
+
+        Rectangle after = CurrentRect(hwnd);
+        Log.Write($"Plein écran refait sur écran {target.Order} par SetWindowPlacement : {Describe(after)}");
+
+        return new RdpMoveResult
+        {
+            Success = true,
+            Before = before,
+            After = after,
+            Strategy = "SetWindowPlacement",
+            Message = $"« {window.Server} » est en plein écran sur l'écran {target.Order} {target.PositionLabel}."
+        };
+    }
+
+    /// <summary>
+    /// Cas B : translation vers l'écran visé en conservant le débord de chaque côté. Un plein écran
+    /// mstsc déborde de son écran de la largeur de son cadre : reproduire ce débord sur l'écran
+    /// d'arrivée est ce qui garde la barre de titre hors de vue.
+    /// </summary>
+    private static async Task<RdpMoveResult> TranslateAsync(
+        RdpSessionWindow window, Rectangle before, Rectangle sourceScreen, MonitorInfo target,
+        IEnumerable<MonitorInfo> monitors, string strategy)
+    {
+        nint hwnd = window.Handle;
+        Rectangle screen = ScreenBounds(target);
+
+        Rectangle wanted = Rectangle.FromLTRB(
+            screen.Left - (sourceScreen.Left - before.Left),
+            screen.Top - (sourceScreen.Top - before.Top),
+            screen.Right + (before.Right - sourceScreen.Right),
+            screen.Bottom + (before.Bottom - sourceScreen.Bottom));
+
+        // La barre de connexion flottante est repérée avant, tant qu'elle est encore sur l'écran de
+        // départ : c'est sa position qui permet de la reconnaître.
+        var bars = RdpWindowFinder.FindBars(window.ProcessId, sourceScreen, hwnd);
 
         Apply(hwnd, wanted, NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
         await Task.Delay(90);
@@ -146,171 +249,148 @@ public static class RdpWindowMover
             Landed(hwnd, wanted, out after);
         }
 
-        if (maximized)
-        {
-            NativeMethods.ShowWindow(hwnd, NativeMethods.SW_MAXIMIZE);
-            await Task.Delay(90);
-            if (NativeMethods.GetWindowRect(hwnd, out var zoomed)) after = ToRectangle(zoomed);
-        }
-
-        // La barre de connexion suit du même décalage que la session.
         MoveBars(bars, after.X - before.X, after.Y - before.Y);
 
-        // Le seul verdict qui compte : la fenêtre est-elle sur l'écran demandé ? On compare donc
-        // l'écran qui porte le plus de la fenêtre, et non un rectangle exact — mstsc ajuste.
-        bool success = after.Width > 0 && MajorityScreen(after, monitors) == ScreenBounds(target);
+        bool success = after.Width > 0 && MajorityScreen(after, monitors) == screen;
         string where = $"écran {target.Order} {target.PositionLabel}";
-
-        Log.Write($"Déplacement de fenêtre « {window.Title} » ({window.ModeText}) : "
-                + $"{Describe(before)} → {Describe(after)}, cible {Describe(wanted)} sur {where} — "
-                + (success ? "réussi" : "ÉCHEC"));
+        Log.Write($"{strategy} : {Describe(before)} → {Describe(after)}, cible {Describe(wanted)} "
+                + $"sur {where} — {(success ? "réussi" : "ÉCHEC")}");
 
         return new RdpMoveResult
         {
             Success = success,
             Before = before,
             After = after,
+            Strategy = strategy,
             Message = success
-                ? $"« {window.Server} » est maintenant sur l'{where}"
-                  + (after.Size != before.Size ? $", en {after.Width} × {after.Height}." : ".")
-                  + (spansSeveralScreens ? " La session couvre plusieurs écrans : elle a été translatée sans changer de taille." : "")
+                ? $"« {window.Server} » est en plein écran sur l'{where}."
                 : $"Le Bureau à distance a refusé de déplacer « {window.Server} » vers l'{where}. "
-                  + "Quittez le plein écran (Ctrl + Alt + Attn), déplacez la fenêtre, puis remettez-la en plein écran.",
+                  + "Quittez le plein écran (Ctrl + Alt + Attn), déplacez la fenêtre, puis remettez-la en plein écran."
         };
     }
 
     /// <summary>
-    /// Met la session en <b>vrai</b> plein écran sur l'écran demandé.
-    ///
-    /// Couvrir l'écran ne suffit pas : une fenêtre garde sa barre de titre et ses bordures, et le
-    /// bureau distant reste plus petit que l'écran. Le seul vrai plein écran est celui de mstsc,
-    /// celui qu'on obtient en agrandissant la fenêtre. On le lui demande donc exactement comme le
-    /// fait le bouton « Agrandir » de la barre de connexion, puis on vérifie où il a atterri.
-    ///
-    /// Ce plein écran suit l'écran de la fenêtre grâce à <c>maximizetocurrentdisplays:i:1</c>. Une
-    /// session ouverte avant que ce réglage existe repart sur l'écran d'origine : c'est détecté, on
-    /// revient en arrière, et on se contente alors de couvrir l'écran demandé en le disant.
+    /// Cas C : une session en fenêtre. L'agrandir ne la met pas en plein écran — mstsc ne bascule
+    /// que sur Ctrl + Alt + Attn. On la pose donc sur l'écran visé, puis on demande la bascule.
     /// </summary>
-    public static async Task<RdpMoveResult> FullScreenOnAsync(
-        RdpSessionWindow window, MonitorInfo target, IEnumerable<MonitorInfo> monitors)
+    private static async Task<RdpMoveResult> WindowToFullScreenAsync(
+        RdpSessionWindow window, Rectangle before, MonitorInfo target, IEnumerable<MonitorInfo> monitors)
     {
         nint hwnd = window.Handle;
-        if (!NativeMethods.IsWindow(hwnd))
-            return Failed("Cette fenêtre n'existe plus — actualisez la liste des sessions ouvertes.");
-
         Rectangle screen = ScreenBounds(target);
         string where = $"écran {target.Order} {target.PositionLabel}";
 
-        // Déjà sans bordure : la session est en plein écran mstsc, il suffit de la poser sur
-        // l'écran demandé. C'est le cas de celle qu'on ne peut pas attraper à la souris.
-        if (window.FullScreen)
-            return await MoveToAsync(window, target, monitors, fitToScreen: true, forceFullScreen: true);
-
-        // Plus grande que l'écran visé : un agrandissement porterait sur plusieurs écrans. On se
-        // contente de couvrir celui qui est demandé.
-        if (window.Bounds.Width > screen.Width || window.Bounds.Height > screen.Height)
-            return await MoveToAsync(window, target, monitors, fitToScreen: true, forceFullScreen: true);
-
-        // L'agrandissement s'applique aux écrans que la fenêtre occupe : on la rentre d'abord
-        // entièrement dans l'écran visé — en la translatant seulement, donc sans toucher à la
-        // résolution de la session.
-        if (!screen.Contains(window.Bounds))
+        // La bascule porte sur l'écran occupé par la fenêtre : on l'y rentre entièrement d'abord,
+        // par simple translation, donc sans toucher à la résolution de la session.
+        if (!screen.Contains(before))
         {
-            MoveInside(hwnd, window.Bounds, screen);
-            await Task.Delay(100);
+            MoveInside(hwnd, before, screen);
+            await Task.Delay(120);
         }
 
-        bool borderless = await AskNativeFullScreenAsync(hwnd);
-        Rectangle after = CurrentRect(hwnd);
-
-        if (borderless && MajorityScreen(after, monitors) == screen)
+        if (await AskNativeFullScreenAsync(hwnd, screen))
         {
-            Log.Write($"Plein écran natif obtenu pour « {window.Title} » sur {where} : {Describe(after)}");
+            Rectangle native = CurrentRect(hwnd);
+            Log.Write($"Plein écran natif obtenu sur {where} : {Describe(native)}");
             return new RdpMoveResult
             {
                 Success = true,
-                Before = window.Bounds,
-                After = after,
+                Before = before,
+                After = native,
+                Strategy = "Ctrl+Alt+Attn",
                 Message = $"« {window.Server} » est en plein écran sur l'{where}."
             };
         }
 
-        // Échec : soit mstsc n'a pas basculé, soit il est reparti sur les écrans d'origine.
-        Log.Write($"Plein écran natif refusé pour « {window.Title} » : {Describe(after)}"
-                + $"{(borderless ? "" : " (bordures conservées)")} — repli sur la couverture de l'{where}.");
-
-        if (borderless)
+        // La bascule a peut-être eu lieu, mais sur un autre écran : c'est ce que fait mstsc quand la
+        // session a été ouverte avant la correction de maximizetocurrentdisplays. La session est
+        // alors agrandie, donc SetWindowPlacement sait la déplacer sans lui faire perdre son plein
+        // écran — et l'utilisateur obtient malgré tout ce qu'il demandait.
+        if (NativeMethods.IsZoomed(hwnd))
         {
-            // Il est parti en plein écran ailleurs : on repasse en fenêtre pour pouvoir le poser.
-            NativeMethods.PostMessage(hwnd, NativeMethods.WM_SYSCOMMAND, (nuint)NativeMethods.SC_RESTORE, 0);
-            await Task.Delay(400);
+            Log.Write("Plein écran natif obtenu sur un autre écran : déplacement par SetWindowPlacement.");
+            var relocated = await ReMaximiseAsync(window, before, target, monitors);
+            if (relocated is not null) return relocated;
         }
 
-        var fresh = RdpWindowFinder.Reread(hwnd) ?? window;
-        var fallback = await MoveToAsync(fresh, target, monitors, fitToScreen: true, forceFullScreen: true);
+        // Repli : couvrir l'écran. La barre de titre restera visible — on le dit plutôt que de
+        // laisser croire à un plein écran.
+        Apply(hwnd, screen, NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
+        await Task.Delay(120);
+
+        Rectangle after = CurrentRect(hwnd);
+        bool success = after.Width > 0 && MajorityScreen(after, monitors) == screen;
+        Log.Write($"Plein écran natif non obtenu : {Describe(after)} — repli sur la couverture de l'{where}.");
 
         return new RdpMoveResult
         {
-            Success = fallback.Success,
-            Before = window.Bounds,
-            After = fallback.After,
-            Message = fallback.Success
-                ? $"« {window.Server} » couvre l'{where}, mais garde ses bordures : mstsc ramène son "
-                  + "plein écran sur l'écran d'origine. Reconnectez la session — le nouveau fichier "
-                  + ".rdp corrige ce comportement."
-                : fallback.Message
+            Success = success,
+            Before = before,
+            After = after,
+            Strategy = "couverture de l'écran",
+            Message = success
+                ? $"« {window.Server} » couvre l'{where}, mais garde sa barre de titre : mettez le "
+                  + "focus dans la session puis appuyez sur Ctrl + Alt + Attn pour le plein écran."
+                : $"Le Bureau à distance a refusé de déplacer « {window.Server} » vers l'{where}."
         };
     }
 
     /// <summary>
-    /// Demande son plein écran à mstsc et attend qu'il l'ait pris. La commande système est ce
-    /// qu'envoie le bouton « Agrandir » : c'est elle que le client écoute pour basculer. Si rien ne
-    /// bouge, l'agrandissement est fait à sa place, ce qui déclenche la même bascule.
+    /// Envoie Ctrl + Alt + Attn, la bascule plein écran de mstsc, et attend qu'elle ait pris.
+    /// La frappe n'est envoyée que si la session a réellement le focus : sinon elle partirait dans
+    /// une autre application.
     /// </summary>
-    private static async Task<bool> AskNativeFullScreenAsync(nint hwnd)
+    private static async Task<bool> AskNativeFullScreenAsync(nint hwnd, Rectangle screen)
     {
-        NativeMethods.PostMessage(hwnd, NativeMethods.WM_SYSCOMMAND, (nuint)NativeMethods.SC_MAXIMIZE, 0);
-        if (await WaitForBorderlessAsync(hwnd, 800)) return true;
+        if (NativeMethods.GetForegroundWindow() != hwnd)
+        {
+            Log.Write("Plein écran natif non demandé : la session n'a pas le focus.");
+            return false;
+        }
 
-        NativeMethods.ShowWindow(hwnd, NativeMethods.SW_MAXIMIZE);
-        return await WaitForBorderlessAsync(hwnd, 900);
+        SendCtrlAltBreak();
+        return await WaitForCoverageAsync(hwnd, screen, FullScreenTimeoutMs);
+    }
+
+    private static void SendCtrlAltBreak()
+    {
+        try
+        {
+            Down(NativeMethods.VK_CONTROL);
+            Down(NativeMethods.VK_MENU);
+            Down(NativeMethods.VK_CANCEL);
+            Up(NativeMethods.VK_CANCEL);
+            Up(NativeMethods.VK_MENU);
+            Up(NativeMethods.VK_CONTROL);
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"Envoi de Ctrl + Alt + Attn : {ex.Message}");
+        }
+
+        // Le code de scan est fourni : le crochet clavier de mstsc s'appuie dessus.
+        static void Down(byte key) =>
+            NativeMethods.keybd_event(key, (byte)NativeMethods.MapVirtualKey(key, 0), 0, 0);
+
+        static void Up(byte key) =>
+            NativeMethods.keybd_event(key, (byte)NativeMethods.MapVirtualKey(key, 0),
+                NativeMethods.KEYEVENTF_KEYUP, 0);
     }
 
     /// <summary>
-    /// Attend la disparition de la barre de titre, seul signe fiable que mstsc est bien passé en
-    /// plein écran. L'attente est active : la bascule demande une renégociation avec le serveur,
-    /// dont la durée dépend de la liaison — un délai fixe serait tantôt trop court, tantôt inutile.
+    /// Attend que la fenêtre couvre l'écran entier — le seul signe qui vaille, quelle que soit la
+    /// façon dont le client fabrique son plein écran. L'attente est active : la bascule demande une
+    /// renégociation avec le serveur, dont la durée dépend de la liaison.
     /// </summary>
-    private static async Task<bool> WaitForBorderlessAsync(nint hwnd, int timeoutMs)
+    private static async Task<bool> WaitForCoverageAsync(nint hwnd, Rectangle screen, int timeoutMs)
     {
         for (int waited = 0; waited < timeoutMs; waited += 100)
         {
             await Task.Delay(100);
             if (!NativeMethods.IsWindow(hwnd)) return false;
-            if (IsBorderless(hwnd)) return true;
+            if (CurrentRect(hwnd).Contains(screen)) return true;
         }
         return false;
-    }
-
-    private static bool IsBorderless(nint hwnd)
-    {
-        uint style = NativeMethods.GetWindowStyles(hwnd, NativeMethods.GWL_STYLE);
-        return (style & (NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME)) == 0;
-    }
-
-    private static Rectangle CurrentRect(nint hwnd) =>
-        NativeMethods.GetWindowRect(hwnd, out var rect) ? ToRectangle(rect) : Rectangle.Empty;
-
-    /// <summary>Rentre la fenêtre dans l'écran sans la redimensionner : le plein écran fera le reste.</summary>
-    private static void MoveInside(nint hwnd, Rectangle window, Rectangle screen)
-    {
-        int width = Math.Min(window.Width, screen.Width);
-        int height = Math.Min(window.Height, screen.Height);
-        int x = Math.Clamp(window.X, screen.Left, screen.Right - width);
-        int y = Math.Clamp(window.Y, screen.Top, screen.Bottom - height);
-
-        NativeMethods.SetWindowPos(hwnd, 0, x, y, 0, 0,
-            NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
     }
 
     /// <summary>Met la session au premier plan, sur l'écran où elle se trouve.</summary>
@@ -332,19 +412,24 @@ public static class RdpWindowMover
 
     // ------------------------------------------------------------------ géométrie
 
-    /// <summary>
-    /// Où poser la fenêtre. Sans redimensionnement, elle est centrée sur l'écran d'arrivée ; si
-    /// elle est plus grande que lui, elle est calée en haut à gauche — c'est ce qui garde le menu
-    /// Démarrer distant et la barre de connexion visibles.
-    /// </summary>
-    private static Rectangle Place(Rectangle window, Rectangle screen, bool fit)
-    {
-        int width = fit || window.Width <= 0 ? screen.Width : window.Width;
-        int height = fit || window.Height <= 0 ? screen.Height : window.Height;
+    /// <summary>Coordonnées utilisables pour poser une fenêtre en plein écran sur cet écran.</summary>
+    private static Rectangle ScreenBounds(MonitorInfo monitor) =>
+        monitor.WindowBounds is { Width: > 0, Height: > 0 } ? monitor.WindowBounds : monitor.LayoutBounds;
 
-        int x = screen.X + Math.Max(0, (screen.Width - width) / 2);
-        int y = screen.Y + Math.Max(0, (screen.Height - height) / 2);
-        return new Rectangle(x, y, width, height);
+    /// <summary>Zone hors barre des tâches, pour une taille rétablie.</summary>
+    private static Rectangle WorkBounds(MonitorInfo monitor) =>
+        monitor.WindowWorkArea is { Width: > 0, Height: > 0 } ? monitor.WindowWorkArea : ScreenBounds(monitor);
+
+    /// <summary>Rentre la fenêtre dans l'écran sans la redimensionner : la bascule fera le reste.</summary>
+    private static void MoveInside(nint hwnd, Rectangle window, Rectangle screen)
+    {
+        int width = Math.Min(window.Width, screen.Width);
+        int height = Math.Min(window.Height, screen.Height);
+        int x = Math.Clamp(window.X, screen.Left, screen.Right - width);
+        int y = Math.Clamp(window.Y, screen.Top, screen.Bottom - height);
+
+        NativeMethods.SetWindowPos(hwnd, 0, x, y, 0, 0,
+            NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
     }
 
     private static void Apply(nint hwnd, Rectangle wanted, uint flags)
@@ -353,10 +438,16 @@ public static class RdpWindowMover
             Log.Write($"SetWindowPos a échoué (erreur {Marshal.GetLastWin32Error()}) pour {Describe(wanted)}.");
     }
 
+    private static bool Landed(nint hwnd, Rectangle wanted, out Rectangle actual)
+    {
+        actual = CurrentRect(hwnd);
+        return Math.Abs(actual.X - wanted.X) <= Tolerance && Math.Abs(actual.Y - wanted.Y) <= Tolerance;
+    }
+
     /// <summary>
-    /// L'écran qui porte la plus grande partie de la fenêtre. Sert deux fois : repérer l'écran de
-    /// départ, et vérifier après coup que la fenêtre a bien atterri sur l'écran demandé. Sans
-    /// recouvrement, le rectangle de la fenêtre est renvoyé tel quel — donc jamais égal à un écran.
+    /// L'écran qui porte la plus grande partie de la fenêtre. Sert à vérifier après coup que la
+    /// fenêtre a bien atterri sur l'écran demandé. Sans recouvrement, le rectangle de la fenêtre est
+    /// renvoyé tel quel — donc jamais égal à un écran.
     /// </summary>
     private static Rectangle MajorityScreen(Rectangle window, IEnumerable<MonitorInfo> monitors)
     {
@@ -372,6 +463,23 @@ public static class RdpWindowMover
         }
 
         return best;
+    }
+
+    /// <summary>Nombre d'écrans réellement occupés par la fenêtre (un quart de l'écran au moins).</summary>
+    private static int CoveredScreens(Rectangle window, IEnumerable<MonitorInfo> monitors)
+    {
+        int count = 0;
+        foreach (var monitor in monitors)
+        {
+            Rectangle screen = ScreenBounds(monitor);
+            double area = (double)screen.Width * screen.Height;
+            if (area <= 0) continue;
+
+            var shared = Rectangle.Intersect(screen, window);
+            double covered = (double)Math.Max(0, shared.Width) * Math.Max(0, shared.Height);
+            if (covered / area >= CoverageRatio) count++;
+        }
+        return count;
     }
 
     private static void MoveBars(List<nint> bars, int deltaX, int deltaY)
@@ -393,42 +501,25 @@ public static class RdpWindowMover
         }
     }
 
-    private static bool Landed(nint hwnd, Rectangle wanted, out Rectangle actual)
+    private static bool IsBorderless(nint hwnd)
     {
-        actual = NativeMethods.GetWindowRect(hwnd, out var rect) ? ToRectangle(rect) : Rectangle.Empty;
-        return Math.Abs(actual.X - wanted.X) <= Tolerance && Math.Abs(actual.Y - wanted.Y) <= Tolerance;
+        uint style = NativeMethods.GetWindowStyles(hwnd, NativeMethods.GWL_STYLE);
+        return (style & (NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME)) == 0;
     }
 
-    /// <summary>La fenêtre recouvre-t-elle un écran entier, barre des tâches comprise ?</summary>
-    private static bool CoversAnyScreen(Rectangle window, IEnumerable<MonitorInfo> monitors)
-    {
-        foreach (var monitor in monitors)
-        {
-            Rectangle screen = ScreenBounds(monitor);
-            if (screen is { Width: > 0, Height: > 0 } && window.Contains(screen)) return true;
-        }
-        return false;
-    }
-
-    /// <summary>Nombre d'écrans réellement occupés par la fenêtre (un quart de l'écran au moins).</summary>
-    private static int CoveredScreens(Rectangle window, IEnumerable<MonitorInfo> monitors)
-    {
-        int count = 0;
-        foreach (var monitor in monitors)
-        {
-            Rectangle screen = ScreenBounds(monitor);
-            double area = (double)screen.Width * screen.Height;
-            if (area <= 0) continue;
-
-            var shared = Rectangle.Intersect(screen, window);
-            double covered = (double)Math.Max(0, shared.Width) * Math.Max(0, shared.Height);
-            if (covered / area >= CoverageRatio) count++;
-        }
-        return count;
-    }
+    private static Rectangle CurrentRect(nint hwnd) =>
+        NativeMethods.GetWindowRect(hwnd, out var rect) ? ToRectangle(rect) : Rectangle.Empty;
 
     private static Rectangle ToRectangle(NativeMethods.RECT rect) =>
         new(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
+
+    private static NativeMethods.RECT FromRectangle(Rectangle rectangle) => new()
+    {
+        Left = rectangle.Left,
+        Top = rectangle.Top,
+        Right = rectangle.Right,
+        Bottom = rectangle.Bottom
+    };
 
     private static string Describe(Rectangle rectangle) =>
         $"{rectangle.Width}×{rectangle.Height} en ({rectangle.X},{rectangle.Y})";
