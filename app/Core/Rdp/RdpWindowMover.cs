@@ -171,6 +171,7 @@ public static class RdpWindowMover
         int spanned = CoveredScreens(before, monitors);
 
         Log.Write($"Déplacement de « {window.Title} » vers écran {target.Order} {target.PositionLabel} — "
+                + $"client : {window.ProcessName} / {window.ClassName}, "
                 + $"état : {Describe(before)}, "
                 + $"{(IsBorderless(hwnd) ? "sans bordure" : "avec bordure")}, "
                 + $"{(zoomed ? "agrandie" : "non agrandie")}, "

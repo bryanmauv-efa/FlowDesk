@@ -1,0 +1,36 @@
+# Compilation de controle sur Windows.
+#
+# Le compilateur XAML du Windows App SDK est un executable Windows : ni Linux ni macOS ne
+# peuvent le lancer. Cette compilation est donc le seul moyen de verifier qu'une modification
+# tient debout de bout en bout — code C#, XAML compiles et ressources comprises — sans avoir
+# un poste Windows sous la main.
+#
+# Elle ne remplace pas compilation.bat, qui produit l'executable unique a distribuer.
+
+name: Compilation Windows
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  compiler:
+    name: Compiler l'application
+    runs-on: windows-latest
+
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v4
+
+      - name: Installer le SDK .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restaurer les paquets
+        run: dotnet restore app/TermServMultiScreen.csproj -r win-x64
+
+      - name: Compiler (Release)
+        run: dotnet build app/TermServMultiScreen.csproj -c Release -r win-x64 --no-restore

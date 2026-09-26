@@ -104,7 +104,11 @@ namespace TermServMultiScreen
                     lines.Add("selectedmonitors:s:" + BuildSelectedMonitors(selection, config));
                 }
                 lines.Add("singlemoninwindowedmode:i:1");
-                lines.Add("maximizetocurrentdisplays:i:0");
+                // A 0, mstsc remet toujours le plein ecran sur les ecrans de selectedmonitors :
+                // deplacer la fenetre en cours de session ne sert alors a rien. A 1, le plein
+                // ecran se fait sur l'ecran ou la fenetre se trouve. Les ecrans choisis ne
+                // changent pas : la session s'ouvre toujours sur selectedmonitors.
+                lines.Add("maximizetocurrentdisplays:i:1");
             }
 
             lines.Add("session bpp:i:32");
