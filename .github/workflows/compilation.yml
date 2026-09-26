@@ -34,3 +34,38 @@ jobs:
 
       - name: Compiler (Release)
         run: dotnet build app/TermServMultiScreen.csproj -c Release -r win-x64 --no-restore
+
+      # Les memes options que compilation.bat : un seul fichier autonome, tout embarque.
+      # La question de version, elle, ne se pose pas ici — la valeur du csproj est reprise
+      # telle quelle, une compilation automatique ne doit rien decider a la place de personne.
+      - name: Produire l'executable autonome
+        run: >
+          dotnet publish app/TermServMultiScreen.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:WindowsAppSDKSelfContained=true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:IncludeAllContentForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:PublishReadyToRun=false
+          -p:DebugType=none
+          -o publication
+
+      - name: Verifier le fichier produit
+        shell: pwsh
+        run: |
+          $exe = Get-Item publication/TermServMultiScreen.exe
+          "{0} — {1:N1} Mo" -f $exe.Name, ($exe.Length / 1MB)
+
+      # Executable NON SIGNE : signer-release.ps1 exige private_key.xml, qui n'est pas dans le
+      # depot et n'a rien a y faire. La signature reste une etape locale, sur le poste qui
+      # detient la cle.
+      - name: Publier l'executable en artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TermServMultiScreen-win-x64-non-signe
+          path: publication/TermServMultiScreen.exe
+          retention-days: 7
+          if-no-files-found: error
