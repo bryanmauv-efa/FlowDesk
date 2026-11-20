@@ -63,6 +63,6 @@ public sealed class CommandLine
           --print             affiche le fichier .rdp qui serait utilisé
           --out <fichier>     écrit la sortie texte dans un fichier
 
-        Exemple : TermServMultiScreen.exe --profile "BN" --screens 1,2 --connect
+        Exemple : FlowDesk.exe --profile "BN" --screens 1,2 --connect
         """;
 }

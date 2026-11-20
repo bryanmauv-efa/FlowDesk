@@ -1,0 +1,43 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="FlowDesk" Manufacturer="efa" Version="$(var.Version)"
+           UpgradeCode="B68E759B-17D4-41E3-9D15-FA8B086987CF" Language="1036" Scope="perUser">
+    <MajorUpgrade DowngradeErrorMessage="Une version plus recente de FlowDesk est deja installee." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Launch Condition="Installed OR WindowsBuild &gt;= 19041" Message="FlowDesk necessite Windows 10 version 2004 ou une version ulterieure." />
+    <Icon Id="FlowDeskIcon" SourceFile="$(var.ProjectDir)\AppIcon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="FlowDeskIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/bryanmauv-efa/FlowDesk" />
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="FlowDesk">
+          <Component Id="Application" Guid="F04296CA-B36D-48DB-BE51-D15027356474">
+            <File Id="FlowDeskExe" Source="$(var.PublishDir)\FlowDesk.exe" />
+            <RegistryValue Root="HKCU" Key="Software\efa\FlowDesk" Name="InstallFolder" Value="[INSTALLFOLDER]" Type="string" KeyPath="yes" />
+            <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+            <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsFolder" On="uninstall" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="FlowDeskMenu" Name="FlowDesk">
+        <Component Id="StartMenuShortcut">
+          <Shortcut Id="StartFlowDesk" Name="FlowDesk" Target="[INSTALLFOLDER]FlowDesk.exe" WorkingDirectory="INSTALLFOLDER" Icon="FlowDeskIcon" />
+          <RemoveFolder Id="RemoveMenu" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\efa\FlowDesk" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut">
+        <Shortcut Id="DesktopFlowDesk" Name="FlowDesk" Target="[INSTALLFOLDER]FlowDesk.exe" WorkingDirectory="INSTALLFOLDER" Icon="FlowDeskIcon" />
+        <RegistryValue Root="HKCU" Key="Software\efa\FlowDesk" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+    <Feature Id="Main" Title="FlowDesk" Level="1">
+      <ComponentRef Id="Application" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+  </Package>
+</Wix>

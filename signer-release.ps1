@@ -1,7 +1,7 @@
 param(
-    [string]$exePath = "publication\TermServMultiScreen.exe",
+    [string]$exePath = "publication\FlowDesk.exe",
     [string]$privateKeyPath = "private_key.xml",
-    [string]$sigPath = "publication\TermServMultiScreen.exe.sig"
+    [string]$sigPath = "publication\FlowDesk.exe.sig"
 )
 
 if (-not (Test-Path $exePath)) {

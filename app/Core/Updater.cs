@@ -65,9 +65,25 @@ public static class Updater
                 return;
             }
 
-            // 3. Trouver les assets (.exe et .sig)
+            // Une installation MSI doit rester geree par Windows Installer.
+            using var installKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\efa\FlowDesk");
+            var installFolder = installKey?.GetValue("InstallFolder") as string;
+            var processFolder = Path.GetDirectoryName(Environment.ProcessPath);
+            if (!string.IsNullOrEmpty(installFolder) && !string.IsNullOrEmpty(processFolder) &&
+                string.Equals(Path.TrimEndingDirectorySeparator(installFolder),
+                    Path.TrimEndingDirectorySeparator(processFolder), StringComparison.OrdinalIgnoreCase))
+            {
+                Process.Start(new ProcessStartInfo($"https://github.com/{RepoOwner}/{RepoName}/releases/latest")
+                {
+                    UseShellExecute = true
+                });
+                Log.Write("Installation MSI : ouverture de la release pour installer la nouvelle version.");
+                return;
+            }
+
+            // 3. Trouver les assets (.exe et sa signature correspondante)
             var exeAsset = release.Assets?.FirstOrDefault(a => a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
-            var sigAsset = release.Assets?.FirstOrDefault(a => a.Name.EndsWith(".sig", StringComparison.OrdinalIgnoreCase));
+            var sigAsset = release.Assets?.FirstOrDefault(a => string.Equals(a.Name, exeAsset?.Name + ".sig", StringComparison.OrdinalIgnoreCase));
 
             if (exeAsset == null || sigAsset == null)
             {

@@ -16,3 +16,5 @@ private_key.xml
 *.suo
 # Cles RSA privées
 private_key.xml
+
+.tools/

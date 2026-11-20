@@ -1,11 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <RootNamespace>TermServMultiScreen</RootNamespace>
-    <AssemblyName>TermServMultiScreen</AssemblyName>
+    <AssemblyName>FlowDesk</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Icone fournie a la racine du projet : c'est la source unique, aucune copie a maintenir. -->
     <ApplicationIcon>..\AppIcon.ico</ApplicationIcon>
@@ -29,10 +29,10 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
 
-    <Product>Bureau Ã  distance multi-Ã©crans</Product>
-    <AssemblyTitle>Bureau Ã  distance multi-Ã©crans</AssemblyTitle>
+    <Product>FlowDesk</Product>
+    <AssemblyTitle>FlowDesk</AssemblyTitle>
     <Company>efa</Company>
-    <Version>1.0.8</Version>
+    <Version>1.0.9</Version>
 
     <!-- Le rognage casserait la reflexion utilisee par XAML : desactive volontairement. -->
     <PublishTrimmed>false</PublishTrimmed>
@@ -55,7 +55,7 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <!-- Lecture des conteneurs PKCS#7 (.p7b) : format proposé par les autorités AD CS. -->
-    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.10" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.Segmented" Version="8.2.251219" />
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
   </ItemGroup>

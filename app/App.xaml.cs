@@ -275,7 +275,7 @@ public partial class App : Application
                 string message = "La session n'a pas été lancée : le fichier .rdp n'a pas pu être signé."
                                + Environment.NewLine + Environment.NewLine + result.FailureReason
                                + Environment.NewLine + Environment.NewLine
-                               + "Diagnostic complet : TermServMultiScreen.exe --rdptrust";
+                               + "Diagnostic complet : FlowDesk.exe --rdptrust";
                 WriteText(command, "erreur-signature.txt", message);
                 NativeMethods.MessageBox(0, message, "FlowDesk — signature .rdp", NativeMethods.MB_ICONERROR);
             }

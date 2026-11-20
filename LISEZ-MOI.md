@@ -1,4 +1,4 @@
-# Bureau à distance multi-écrans
+# FlowDesk — Bureau à distance multi-écrans
 
 Ouvre une session Bureau à distance (`mstsc.exe`) sur **les écrans que vous choisissez** — un, deux,
 trois, ceux que vous voulez — sans jamais avoir à deviner quel numéro Windows a donné à quel écran.
@@ -8,13 +8,33 @@ et contrôles du Windows Community Toolkit.
 
 ---
 
+## Release 1.0.9 : portable et installation MSI
+
+La compilation produit dans `publication\1.0.9` :
+
+- `FlowDesk.exe` : executable portable autonome, Windows x64.
+- `FlowDesk-1.0.9-x64.msi` : installation pour l'utilisateur courant dans `%LOCALAPPDATA%\Programs\FlowDesk`, avec raccourcis Bureau et menu Demarrer et desinstallation dans les applications Windows.
+- `SHA256SUMS.txt` : empreintes SHA-256 des deux fichiers.
+
+Double-cliquez sur le MSI pour installer. Pour un deploiement silencieux :
+
+```powershell
+msiexec /i FlowDesk-1.0.9-x64.msi /qn /norestart
+```
+
+Les futures versions MSI remplacent la precedente ; les versions plus anciennes sont refusees. Les connexions et reglages dans `%LOCALAPPDATA%\TermServMultiScreen` sont conserves a la desinstallation. Depuis une installation MSI, la notification de mise a jour ouvre la page des releases pour recuperer le nouvel installateur.
+
+Compilation : SDK .NET 10 ou ulterieur et acces NuGet ; WiX 6.0.2 est installe localement dans `.tools` si necessaire. `compilation.bat` construit les deux formats sans demander de version : celle-ci provient du `.csproj`.
+
+Si `private_key.xml` est disponible a la racine, la compilation cree aussi `FlowDesk.exe.sig` pour les mises a jour portables. Sans cette cle, la release doit etre telechargee manuellement. Cette signature RSA ne constitue pas une signature Authenticode Windows.
+
 ## Démarrer
 
 ```bash
 compilation.bat
 ```
 
-L'exécutable est produit dans `publication\TermServMultiScreen.exe`. C'est **un seul fichier** autonome (environ 87 Mo). Copiez-le où vous voulez, sur n'importe quel poste Windows 10 (2004+) ou 11 en 64 bits, et double-cliquez.
+L'exécutable est produit dans `publication\1.0.9\FlowDesk.exe`. C'est **un seul fichier** autonome (environ 87 Mo). Copiez-le où vous voulez, sur n'importe quel poste Windows 10 (2004+) ou 11 en 64 bits, et double-cliquez.
 
 **Aucun prérequis** : .NET 10, le Windows App SDK, WinUI, l'icône et les XAML compilés sont tous embarqués dans l'exécutable.
 
@@ -81,7 +101,7 @@ Les mots de passe ne sont ni demandés, ni affichés, ni enregistrés : c'est Wi
 Utile pour un raccourci sur le Bureau ou la barre des tâches.
 
 ```bash
-TermServMultiScreen.exe --profile "BN" --screens 1,2 --connect
+FlowDesk.exe --profile "BN" --screens 1,2 --connect
 ```
 
 | Paramètre | Effet |
@@ -127,8 +147,8 @@ Deux détails qui comptent :
 Vérification sans avoir le matériel sous la main :
 
 ```bash
-TermServMultiScreen.exe --maptest    # rapport texte : rangées, rangs, libellés, groupes
-TermServMultiScreen.exe --mapdemo    # aperçu graphique de dispositions de référence
+FlowDesk.exe --maptest    # rapport texte : rangées, rangs, libellés, groupes
+FlowDesk.exe --mapdemo    # aperçu graphique de dispositions de référence
 ```
 
 ---
@@ -204,7 +224,7 @@ préfixe, Windows la lit comme une empreinte SHA-1 héritée. Le format retenu e
 Diagnostic complet (25 contrôles) : Paramètres › Confiance des fichiers .rdp › *Diagnostic*, ou
 
 ```bash
-TermServMultiScreen.exe --rdptrust
+FlowDesk.exe --rdptrust
 ```
 
 ---
