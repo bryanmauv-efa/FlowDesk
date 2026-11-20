@@ -1,9 +1,9 @@
 using System.Drawing;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
-using TermServMultiScreen.Core;
+using FlowDesk.Core;
 
-namespace TermServMultiScreen.ViewModels;
+namespace FlowDesk.ViewModels;
 
 /// <summary>
 /// Une carte d'écran dans le plan. La géométrie n'est plus calculée ici : le panneau de mise en

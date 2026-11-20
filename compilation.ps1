@@ -1,7 +1,7 @@
 param([switch]$SkipSignature)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
-$project = Join-Path $PSScriptRoot 'app\TermServMultiScreen.csproj'
+$project = Join-Path $PSScriptRoot 'app\FlowDesk.csproj'
 $version = ([xml](Get-Content $project -Raw)).Project.PropertyGroup.Version | Where-Object { $_ }
 $out = Join-Path $PSScriptRoot "publication\$version"
 New-Item -ItemType Directory -Force $out | Out-Null

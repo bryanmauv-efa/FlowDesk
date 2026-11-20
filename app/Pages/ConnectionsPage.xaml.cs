@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using TermServMultiScreen.Services;
-using TermServMultiScreen.ViewModels;
+using FlowDesk.Services;
+using FlowDesk.ViewModels;
 
-namespace TermServMultiScreen.Pages;
+namespace FlowDesk.Pages;
 
 public sealed partial class ConnectionsPage : Page
 {

@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace TermServMultiScreen.Core.Rdp;
+namespace FlowDesk.Core.Rdp;
 
 /// <summary>Quelle option de rdpsign.exe utiliser, et quelle empreinte lui passer.</summary>
 public sealed record RdpSignRecipe(string Switch, string HashKind, string HashValue)

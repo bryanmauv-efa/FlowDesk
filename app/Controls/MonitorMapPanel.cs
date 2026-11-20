@@ -1,10 +1,10 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.ViewModels;
+using FlowDesk.Core;
+using FlowDesk.ViewModels;
 using Windows.Foundation;
 
-namespace TermServMultiScreen.Controls;
+namespace FlowDesk.Controls;
 
 /// <summary>
 /// Dispose les cartes d'écran à l'échelle et à leur position réelle sur le bureau virtuel, comme

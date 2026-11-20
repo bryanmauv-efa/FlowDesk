@@ -9,7 +9,7 @@ using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 public static class Updater
 {
@@ -23,7 +23,7 @@ public static class Updater
         try
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("TermServMultiScreen-Updater/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("FlowDesk-Updater/1.0");
 
             // 1. Interroger GitHub pour la derniere release
             var releaseUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
@@ -94,7 +94,7 @@ public static class Updater
             Func<Task> downloadAndApply = async () =>
             {
                 // 4. Telecharger les fichiers dans %TEMP%
-                string tempFolder = Path.Combine(Path.GetTempPath(), "TermServMultiScreenUpdate");
+                string tempFolder = Path.Combine(Path.GetTempPath(), "FlowDeskUpdate");
                 Directory.CreateDirectory(tempFolder);
 
                 string exePath = Path.Combine(tempFolder, exeAsset.Name);
@@ -163,9 +163,9 @@ public static class Updater
         string currentExe = Environment.ProcessPath ?? Assembly.GetExecutingAssembly().Location;
         string currentFolder = Path.GetDirectoryName(currentExe) ?? string.Empty;
         
-        string batPath = Path.Combine(Path.GetTempPath(), "apply_update_termserv.bat");
+        string batPath = Path.Combine(Path.GetTempPath(), "apply_update_flowdesk.bat");
         string batContent = $@"@echo off
-title Mise a jour de TermServMultiScreen...
+title Mise a jour de FlowDesk...
 echo Mise a jour en cours, veuillez patienter...
 timeout /t 3 /nobreak > nul
 :retry

@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 /// <summary>
 /// Un écran physique, avec les trois identités qui comptent :

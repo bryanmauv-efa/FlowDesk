@@ -4,8 +4,10 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
-    <RootNamespace>TermServMultiScreen</RootNamespace>
+    <RootNamespace>FlowDesk</RootNamespace>
     <AssemblyName>FlowDesk</AssemblyName>
+    <!-- Nom stable : le chargement XAML ne doit pas dependre du nom de l'executable. -->
+    <ProjectPriFileName>resources.pri</ProjectPriFileName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Icone fournie a la racine du projet : c'est la source unique, aucune copie a maintenir. -->
     <ApplicationIcon>..\AppIcon.ico</ApplicationIcon>
@@ -32,7 +34,7 @@
     <Product>FlowDesk</Product>
     <AssemblyTitle>FlowDesk</AssemblyTitle>
     <Company>efa</Company>
-    <Version>1.0.9</Version>
+    <Version>1.0.10</Version>
 
     <!-- Le rognage casserait la reflexion utilisee par XAML : desactive volontairement. -->
     <PublishTrimmed>false</PublishTrimmed>
@@ -68,7 +70,7 @@
   <Target Name="AjouterRessourcesXamlALaPublication" AfterTargets="ComputeFilesToPublish" Condition="'$(PublishSingleFile)' != 'true'">
     <ItemGroup>
       <_RessourcesXaml Include="$(OutDir)**\*.xbf" />
-      <_RessourcesXaml Include="$(OutDir)$(AssemblyName).pri" />
+      <_RessourcesXaml Include="$(OutDir)$(ProjectPriFileName)" />
       <ResolvedFileToPublish Include="@(_RessourcesXaml)">
         <RelativePath>%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

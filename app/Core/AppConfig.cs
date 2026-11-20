@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 /// <summary>Référence persistante vers un écran : trois niveaux de repli pour ne jamais se tromper.</summary>
 public sealed class ScreenRef

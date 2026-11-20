@@ -3,11 +3,11 @@ using System.Diagnostics;
 using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.Core.Rdp;
-using TermServMultiScreen.Services;
+using FlowDesk.Core;
+using FlowDesk.Core.Rdp;
+using FlowDesk.Services;
 
-namespace TermServMultiScreen.ViewModels;
+namespace FlowDesk.ViewModels;
 
 /// <summary>Une ligne de correspondance écran → identifiant mstsc.</summary>
 public sealed partial class MappingRowViewModel : ObservableObject

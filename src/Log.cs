@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 
-namespace TermServMultiScreen
+namespace FlowDesk
 {
     /// <summary>Dossiers de travail de l'application.</summary>
     public static class Paths
@@ -12,7 +12,7 @@ namespace TermServMultiScreen
             get
             {
                 string root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                return Path.Combine(root, "TermServMultiScreen");
+                return Path.Combine(root, "FlowDesk");
             }
         }
 

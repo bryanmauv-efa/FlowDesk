@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Page
-    x:Class="TermServMultiScreen.Pages.SessionsPage"
+    x:Class="FlowDesk.Pages.SessionsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:TermServMultiScreen.ViewModels">
+    xmlns:vm="using:FlowDesk.ViewModels">
 
     <Grid Padding="24,20,24,20" RowSpacing="14">
         <Grid.RowDefinitions>

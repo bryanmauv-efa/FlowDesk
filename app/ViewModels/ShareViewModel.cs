@@ -2,12 +2,12 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.Core.Rdp;
-using TermServMultiScreen.Core.Share;
-using TermServMultiScreen.Services;
+using FlowDesk.Core;
+using FlowDesk.Core.Rdp;
+using FlowDesk.Core.Share;
+using FlowDesk.Services;
 
-namespace TermServMultiScreen.ViewModels;
+namespace FlowDesk.ViewModels;
 
 /// <summary>
 /// Page « Partage » : transmettre une session à quelqu'un qui utilise la même application, ou

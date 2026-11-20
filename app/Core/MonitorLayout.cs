@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 /// <summary>
 /// Géométrie pure des dispositions d'écrans : rangées, ordre de lecture, libellés de position et

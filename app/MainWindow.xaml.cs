@@ -3,13 +3,13 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.Pages;
-using TermServMultiScreen.Services;
+using FlowDesk.Core;
+using FlowDesk.Pages;
+using FlowDesk.Services;
 using Windows.Graphics;
 using Windows.UI;
 
-namespace TermServMultiScreen;
+namespace FlowDesk;
 
 public sealed partial class MainWindow : Window
 {

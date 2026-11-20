@@ -1,8 +1,8 @@
 using Microsoft.UI.Xaml;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.Overlays;
+using FlowDesk.Core;
+using FlowDesk.Overlays;
 
-namespace TermServMultiScreen.Services;
+namespace FlowDesk.Services;
 
 /// <summary>Affiche (et referme) les pastilles d'identification sur tous les écrans.</summary>
 public static class IdentifyService

@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 /// <summary>
 /// Journalisation du démarrage. Le point d'entrée est un initialiseur de module : il s'exécute au
@@ -69,7 +69,7 @@ public static class StartupLog
             // Dernier recours : si même la journalisation échoue, on tente une trace brute.
             try
             {
-                File.AppendAllText(Path.Combine(Path.GetTempPath(), "TermServMultiScreen-demarrage.log"),
+                File.AppendAllText(Path.Combine(Path.GetTempPath(), "FlowDesk-demarrage.log"),
                     $"{DateTime.Now:O} StartupLog : {ex}{Environment.NewLine}");
             }
             catch { }
@@ -279,7 +279,7 @@ public static class StartupLog
         try
         {
             string temp = Path.GetTempPath();
-            string probe = Path.Combine(temp, "TermServMultiScreen.ecriture");
+            string probe = Path.Combine(temp, "FlowDesk.ecriture");
             File.WriteAllText(probe, "ok");
             File.Delete(probe);
 

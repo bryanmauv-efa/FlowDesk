@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 /// <summary>
 /// Appels Win32 utilisés pour énumérer les écrans exactement comme le fait mstsc.exe.

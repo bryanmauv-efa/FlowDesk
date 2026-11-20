@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
-namespace TermServMultiScreen.Core.Rdp;
+namespace FlowDesk.Core.Rdp;
 
 /// <summary>Ce que le serveur RDP présente réellement comme certificat TLS.</summary>
 public sealed class ServerCertificateProbe

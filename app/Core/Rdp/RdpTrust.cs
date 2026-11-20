@@ -1,7 +1,7 @@
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
-namespace TermServMultiScreen.Core.Rdp;
+namespace FlowDesk.Core.Rdp;
 
 /// <summary>État de la chaîne de confiance, tel que l'interface peut l'afficher.</summary>
 public sealed class RdpTrustStatus

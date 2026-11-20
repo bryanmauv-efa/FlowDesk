@@ -5,10 +5,10 @@
     la fenetre d'apercu des dispositions.
 -->
 <ResourceDictionary
-    x:Class="TermServMultiScreen.Themes.CardTemplates"
+    x:Class="FlowDesk.Themes.CardTemplates"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:TermServMultiScreen.ViewModels">
+    xmlns:vm="using:FlowDesk.ViewModels">
         <!--
             Carte d'écran : position et taille imposées par MonitorMapPanel, qui reproduit la
             disposition réelle. Le contenu vit dans un Viewbox et se réduit donc tout seul sur un

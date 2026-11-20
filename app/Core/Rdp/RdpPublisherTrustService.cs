@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using Microsoft.Win32;
 
-namespace TermServMultiScreen.Core.Rdp;
+namespace FlowDesk.Core.Rdp;
 
 /// <summary>Ce que la stratégie « éditeurs .rdp approuvés » contient réellement sur cette machine.</summary>
 public sealed class RdpPolicyState

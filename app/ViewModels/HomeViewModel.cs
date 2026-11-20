@@ -3,11 +3,11 @@ using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.Core.Rdp;
-using TermServMultiScreen.Services;
+using FlowDesk.Core;
+using FlowDesk.Core.Rdp;
+using FlowDesk.Services;
 
-namespace TermServMultiScreen.ViewModels;
+namespace FlowDesk.ViewModels;
 
 /// <summary>Page d'accueil : choix de la connexion, choix des écrans, lancement de la session.</summary>
 public sealed partial class HomeViewModel : ObservableObject

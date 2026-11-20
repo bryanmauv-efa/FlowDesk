@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 /// <summary>Rapport lisible : ce que l'application voit, dans les trois numérotations.</summary>
 public static class DiagnosticReport

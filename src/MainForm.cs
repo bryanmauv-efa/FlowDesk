@@ -8,7 +8,7 @@ using System.Linq;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-namespace TermServMultiScreen
+namespace FlowDesk
 {
     public sealed class MainForm : Form
     {

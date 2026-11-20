@@ -6,9 +6,9 @@ rem  aucun utilisateur, aucun fichier .rdp genere.
 rem  Fermez l'application avant de lancer ce script.
 rem ---------------------------------------------------------------------------
 
-set "DATA=%LOCALAPPDATA%\TermServMultiScreen"
+set "DATA=%LOCALAPPDATA%\FlowDesk"
 
-tasklist /fi "imagename eq TermServMultiScreen.exe" | find /i "TermServMultiScreen.exe" >nul
+tasklist /fi "imagename eq FlowDesk.exe" | find /i "FlowDesk.exe" >nul
 if not errorlevel 1 (
   echo [ATTENTION] L'application est encore ouverte : fermez-la d'abord,
   echo             sinon elle reecrira ses connexions en se fermant.

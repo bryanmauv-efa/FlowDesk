@@ -3,11 +3,11 @@ using System.Drawing;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.ViewModels;
+using FlowDesk.Core;
+using FlowDesk.ViewModels;
 using Windows.Graphics;
 
-namespace TermServMultiScreen.Overlays;
+namespace FlowDesk.Overlays;
 
 /// <summary>
 /// Aperçu du plan des écrans pour une disposition donnée, y compris celles que la machine

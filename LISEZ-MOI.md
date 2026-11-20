@@ -8,21 +8,25 @@ et contrôles du Windows Community Toolkit.
 
 ---
 
-## Release 1.0.9 : portable et installation MSI
+## Release 1.0.10 : portable et installation MSI
 
-La compilation produit dans `publication\1.0.9` :
+L'executable portable peut etre renomme, y compris avec des espaces ou des parentheses. Les ressources XAML utilisent un nom fixe independant de celui de l'EXE.
+
+Les donnees et journaux utilisent maintenant le dossier FlowDesk. L'ancien dossier est migre automatiquement au premier lancement ; si les deux dossiers existent deja, les reglages FlowDesk sont prioritaires et seuls les fichiers manquants sont repris.
+
+La compilation produit dans `publication\1.0.10` :
 
 - `FlowDesk.exe` : executable portable autonome, Windows x64.
-- `FlowDesk-1.0.9-x64.msi` : installation pour l'utilisateur courant dans `%LOCALAPPDATA%\Programs\FlowDesk`, avec raccourcis Bureau et menu Demarrer et desinstallation dans les applications Windows.
+- `FlowDesk-1.0.10-x64.msi` : installation pour l'utilisateur courant dans `%LOCALAPPDATA%\Programs\FlowDesk`, avec raccourcis Bureau et menu Demarrer et desinstallation dans les applications Windows.
 - `SHA256SUMS.txt` : empreintes SHA-256 des deux fichiers.
 
 Double-cliquez sur le MSI pour installer. Pour un deploiement silencieux :
 
 ```powershell
-msiexec /i FlowDesk-1.0.9-x64.msi /qn /norestart
+msiexec /i FlowDesk-1.0.10-x64.msi /qn /norestart
 ```
 
-Les futures versions MSI remplacent la precedente ; les versions plus anciennes sont refusees. Les connexions et reglages dans `%LOCALAPPDATA%\TermServMultiScreen` sont conserves a la desinstallation. Depuis une installation MSI, la notification de mise a jour ouvre la page des releases pour recuperer le nouvel installateur.
+Les futures versions MSI remplacent la precedente ; les versions plus anciennes sont refusees. Les connexions et reglages dans `%LOCALAPPDATA%\FlowDesk` sont conserves a la desinstallation. Depuis une installation MSI, la notification de mise a jour ouvre la page des releases pour recuperer le nouvel installateur.
 
 Compilation : SDK .NET 10 ou ulterieur et acces NuGet ; WiX 6.0.2 est installe localement dans `.tools` si necessaire. `compilation.bat` construit les deux formats sans demander de version : celle-ci provient du `.csproj`.
 
@@ -34,7 +38,7 @@ Si `private_key.xml` est disponible a la racine, la compilation cree aussi `Flow
 compilation.bat
 ```
 
-L'exécutable est produit dans `publication\1.0.9\FlowDesk.exe`. C'est **un seul fichier** autonome (environ 87 Mo). Copiez-le où vous voulez, sur n'importe quel poste Windows 10 (2004+) ou 11 en 64 bits, et double-cliquez.
+L'exécutable est produit dans `publication\1.0.10\FlowDesk.exe`. C'est **un seul fichier** autonome (environ 87 Mo). Copiez-le où vous voulez, sur n'importe quel poste Windows 10 (2004+) ou 11 en 64 bits, et double-cliquez.
 
 **Aucun prérequis** : .NET 10, le Windows App SDK, WinUI, l'icône et les XAML compilés sont tous embarqués dans l'exécutable.
 
@@ -47,7 +51,7 @@ Renseignez le serveur et l'utilisateur, choisissez vos écrans, puis **Nouvelle*
 ou **Importer .rdp** pour reprendre un fichier existant.
 
 Chaque connexion enregistrée écrit son fichier dans
-`%LOCALAPPDATA%\TermServMultiScreen\sessions\<nom>.rdp` : c'est ce fichier que `mstsc` ouvre, et il
+`%LOCALAPPDATA%\FlowDesk\sessions\<nom>.rdp` : c'est ce fichier que `mstsc` ouvre, et il
 reste double-cliquable tel quel. Il est mis à jour à chaque **Enregistrer** et supprimé avec la
 connexion.
 
@@ -233,10 +237,10 @@ FlowDesk.exe --rdptrust
 
 | Quoi | Où |
 |---|---|
-| Connexions enregistrées | `%LOCALAPPDATA%\TermServMultiScreen\config.json` |
-| Fichiers `.rdp` générés | `%LOCALAPPDATA%\TermServMultiScreen\sessions\` |
-| Journal | `%LOCALAPPDATA%\TermServMultiScreen\journal.log` |
-| Script d'approbation de l'éditeur | `%LOCALAPPDATA%\TermServMultiScreen\FlowDesk-EditeurApprouve.ps1` |
+| Connexions enregistrées | `%LOCALAPPDATA%\FlowDesk\config.json` |
+| Fichiers `.rdp` générés | `%LOCALAPPDATA%\FlowDesk\sessions\` |
+| Journal | `%LOCALAPPDATA%\FlowDesk\journal.log` |
+| Script d'approbation de l'éditeur | `%LOCALAPPDATA%\FlowDesk\FlowDesk-EditeurApprouve.ps1` |
 
 ---
 

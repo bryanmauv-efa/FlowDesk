@@ -1,6 +1,6 @@
-using TermServMultiScreen.Services;
+using FlowDesk.Services;
 
-namespace TermServMultiScreen.Core.Rdp;
+namespace FlowDesk.Core.Rdp;
 
 /// <summary>
 /// Configuration unique au premier démarrage : propose de déclarer FlowDesk comme éditeur .rdp

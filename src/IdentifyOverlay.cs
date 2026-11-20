@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace TermServMultiScreen
+namespace FlowDesk
 {
     /// <summary>
     /// Affiche un grand numéro sur chaque écran physique : la vérification ultime que le plan

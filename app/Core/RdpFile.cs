@@ -3,7 +3,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Text;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 /// <summary>
 /// Fabrique le contenu du fichier .rdp. C'est le seul moyen de choisir les écrans :

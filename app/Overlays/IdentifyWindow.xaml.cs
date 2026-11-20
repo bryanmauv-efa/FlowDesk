@@ -2,11 +2,11 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using TermServMultiScreen.Core;
+using FlowDesk.Core;
 using Windows.Graphics;
 using Windows.UI;
 
-namespace TermServMultiScreen.Overlays;
+namespace FlowDesk.Overlays;
 
 /// <summary>
 /// Grande pastille plein écran affichant le numéro d'un écran : la vérification ultime que le

@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-namespace TermServMultiScreen
+namespace FlowDesk
 {
     /// <summary>
     /// Un ecran physique, avec les trois identites qui comptent :

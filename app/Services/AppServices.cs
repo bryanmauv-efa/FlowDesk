@@ -1,8 +1,8 @@
 using Microsoft.UI.Xaml;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.ViewModels;
+using FlowDesk.Core;
+using FlowDesk.ViewModels;
 
-namespace TermServMultiScreen.Services;
+namespace FlowDesk.Services;
 
 /// <summary>
 /// Racine de composition : un seul endroit qui crée et partage l'état de l'application.

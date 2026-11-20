@@ -1,9 +1,9 @@
 {
   "profiles": {
-    "TermServMultiScreen (Package)": {
+    "FlowDesk (Package)": {
       "commandName": "MsixPackage"
     },
-    "TermServMultiScreen (Unpackaged)": {
+    "FlowDesk (Unpackaged)": {
       "commandName": "Project"
     }
   }

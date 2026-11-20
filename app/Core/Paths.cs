@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 /// <summary>Dossiers et fichiers de travail de l'application.</summary>
 public static class Paths
@@ -19,14 +19,15 @@ public static class Paths
     private static string ResolveDataFolder()
     {
         List<string> candidates = [];
-        try { candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TermServMultiScreen")); } catch { }
-        try { candidates.Add(Path.Combine(Path.GetTempPath(), "TermServMultiScreen")); } catch { }
-        try { candidates.Add(Path.Combine(AppContext.BaseDirectory, "TermServMultiScreen-data")); } catch { }
+        try { candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FlowDesk")); } catch { }
+        try { candidates.Add(Path.Combine(Path.GetTempPath(), "FlowDesk")); } catch { }
+        try { candidates.Add(Path.Combine(AppContext.BaseDirectory, "FlowDesk-data")); } catch { }
 
         for (int i = 0; i < candidates.Count; i++)
         {
             try
             {
+                if (i == 0) DataMigration.Migrate(candidates[i]);
                 Directory.CreateDirectory(candidates[i]);
                 // Preuve d'écriture : un dossier créable n'est pas forcément inscriptible.
                 string probe = Path.Combine(candidates[i], ".ecriture");

@@ -1,10 +1,10 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.Services;
+using FlowDesk.Core;
+using FlowDesk.Services;
 
-namespace TermServMultiScreen.ViewModels;
+namespace FlowDesk.ViewModels;
 
 /// <summary>Une ligne de la liste des connexions enregistrées.</summary>
 public sealed class ConnectionItem

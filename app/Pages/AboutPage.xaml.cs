@@ -1,9 +1,9 @@
 using System.Reflection;
 using Microsoft.UI.Xaml.Controls;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.Services;
+using FlowDesk.Core;
+using FlowDesk.Services;
 
-namespace TermServMultiScreen.Pages;
+namespace FlowDesk.Pages;
 
 public sealed partial class AboutPage : Page
 {

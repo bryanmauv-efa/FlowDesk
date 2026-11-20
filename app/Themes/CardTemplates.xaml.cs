@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 
-namespace TermServMultiScreen.Themes;
+namespace FlowDesk.Themes;
 
 /// <summary>
 /// Code-behind du dictionnaire de gabarits. Sa seule raison d'être : permettre les liaisons

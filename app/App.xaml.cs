@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.Text;
 using Microsoft.UI.Xaml;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.Core.Rdp;
-using TermServMultiScreen.Services;
+using FlowDesk.Core;
+using FlowDesk.Core.Rdp;
+using FlowDesk.Services;
 
-namespace TermServMultiScreen;
+namespace FlowDesk;
 
 public partial class App : Application
 {

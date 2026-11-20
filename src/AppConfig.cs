@@ -6,7 +6,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 
-namespace TermServMultiScreen
+namespace FlowDesk
 {
     /// <summary>Reference persistante vers un ecran : trois niveaux de repli pour ne jamais se tromper.</summary>
     [DataContract]

@@ -1,7 +1,7 @@
 using Microsoft.UI.Xaml;
-using TermServMultiScreen.Core;
+using FlowDesk.Core;
 
-namespace TermServMultiScreen.Services;
+namespace FlowDesk.Services;
 
 /// <summary>
 /// Source unique de vérité pour la liste des écrans. Réénumère périodiquement : brancher,

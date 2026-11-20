@@ -3,7 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Microsoft.Win32;
 
-namespace TermServMultiScreen.Core.Rdp;
+namespace FlowDesk.Core.Rdp;
 
 public enum CheckStatus { Pass, Fail, Warning, Info }
 

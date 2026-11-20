@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace TermServMultiScreen
+namespace FlowDesk
 {
     /// <summary>Fabrique le contenu du fichier .rdp (le seul moyen de choisir les ecrans : mstsc n'a pas d'option en ligne de commande pour ca).</summary>
     public static class RdpFile

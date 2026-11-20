@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace TermServMultiScreen.Core.Rdp;
+namespace FlowDesk.Core.Rdp;
 
 /// <summary>
 /// Tout ce que l'on sait du certificat de signature, y compris ce que les outils natifs
@@ -59,7 +59,6 @@ public static class RdpCertificateService
     private static readonly string[] LegacySubjects =
     [
         "CN=FlowDesk RDP Publisher",
-        "CN=TermServMultiScreen RDP Publisher",
         "CN=FlowDesk",
         "CN=FlowDesk Publisher"
     ];

@@ -5,7 +5,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace TermServMultiScreen
+namespace FlowDesk
 {
     /// <summary>Fenêtre de texte simple : aperçu du .rdp, diagnostic des écrans.</summary>
     public sealed class TextDialog : Form

@@ -2,7 +2,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace TermServMultiScreen.Core.Share;
+namespace FlowDesk.Core.Share;
 
 /// <summary>Contenu d'un code de partage, tel qu'il sera recréé chez le destinataire.</summary>
 public sealed class SharedSession

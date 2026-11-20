@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Page
-    x:Class="TermServMultiScreen.Pages.HomePage"
+    x:Class="FlowDesk.Pages.HomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:TermServMultiScreen.Controls"
+    xmlns:controls="using:FlowDesk.Controls"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
-    xmlns:vm="using:TermServMultiScreen.ViewModels">
+    xmlns:vm="using:FlowDesk.ViewModels">
 
 
 

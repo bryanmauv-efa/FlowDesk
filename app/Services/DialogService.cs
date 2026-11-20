@@ -1,8 +1,8 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using TermServMultiScreen.Core;
+using FlowDesk.Core;
 
-namespace TermServMultiScreen.Services;
+namespace FlowDesk.Services;
 
 /// <summary>Boîtes de dialogue standard, toutes rattachées à la fenêtre principale.</summary>
 public static class DialogService

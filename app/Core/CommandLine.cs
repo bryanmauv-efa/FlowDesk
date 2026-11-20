@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace TermServMultiScreen.Core;
+namespace FlowDesk.Core;
 
 /// <summary>Lecture très permissive de la ligne de commande : -x, --x, /x, --x=valeur, --x valeur.</summary>
 public sealed class CommandLine

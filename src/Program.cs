@@ -8,7 +8,7 @@ using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
 
-namespace TermServMultiScreen
+namespace FlowDesk
 {
     public static class Program
     {
@@ -186,7 +186,7 @@ namespace TermServMultiScreen
                 "  --identify [sec]    affiche un grand numéro sur chaque écran" + Environment.NewLine +
                 "  --print             affiche le fichier .rdp qui serait utilisé" + Environment.NewLine +
                 "  --out <fichier>     écrit la sortie texte dans un fichier" + Environment.NewLine + Environment.NewLine +
-                "Exemple : TermServMultiScreen.exe --profile \"BN\" --screens 1,2 --connect";
+                "Exemple : FlowDesk.exe --profile \"BN\" --screens 1,2 --connect";
         }
 
         /// <summary>Lecture très permissive de la ligne de commande (-x, --x, /x).</summary>

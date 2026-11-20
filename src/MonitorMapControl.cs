@@ -5,7 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 
-namespace TermServMultiScreen
+namespace FlowDesk
 {
     /// <summary>
     /// Plan des ecrans, dessine a l'echelle et dans la disposition reelle : on clique sur l'ecran

@@ -3,10 +3,10 @@ using System.Diagnostics;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TermServMultiScreen.Core;
-using TermServMultiScreen.Services;
+using FlowDesk.Core;
+using FlowDesk.Services;
 
-namespace TermServMultiScreen.ViewModels;
+namespace FlowDesk.ViewModels;
 
 /// <summary>Un fichier .rdp généré, prêt à être relancé tel quel.</summary>
 public sealed class SessionItem

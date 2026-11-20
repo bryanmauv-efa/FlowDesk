@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using TermServMultiScreen.Services;
-using TermServMultiScreen.ViewModels;
+using FlowDesk.Services;
+using FlowDesk.ViewModels;
 
-namespace TermServMultiScreen.Pages;
+namespace FlowDesk.Pages;
 
 public sealed partial class HomePage : Page
 {
