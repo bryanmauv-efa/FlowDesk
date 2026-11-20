@@ -1,0 +1,117 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main, prepare-signpath]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: 'Demander une signature SignPath (apres acceptation et configuration)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '10.0.404'
+      - name: Select SDK
+        run: dotnet new globaljson --sdk-version 10.0.404 --roll-forward disable
+      - name: Validate signing prerequisites
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.sign }}
+        env:
+          SIGNPATH_READY: ${{ vars.SIGNPATH_READY }}
+          SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_POLICY_SLUG: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          SIGNPATH_ARTIFACT_SLUG: ${{ vars.SIGNPATH_ARTIFACT_SLUG }}
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        run: |
+          if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Signature reservee a main.' }
+          if ($env:SIGNPATH_READY -ne 'true') { throw 'Admission et revue de conformite SignPath non confirmees.' }
+          foreach ($name in 'SIGNPATH_ORGANIZATION_ID','SIGNPATH_PROJECT_SLUG','SIGNPATH_POLICY_SLUG','SIGNPATH_ARTIFACT_SLUG','SIGNPATH_API_TOKEN') {
+            if (![Environment]::GetEnvironmentVariable($name)) { throw "Configuration manquante : $name" }
+          }
+      - name: Test data migration
+        run: |
+          dotnet run --project tests/Migration/Migration.csproj
+          if ($LASTEXITCODE) { throw 'Tests de migration en echec.' }
+      - name: Build EXE and MSI
+        run: ./compilation.ps1 -SkipSignature
+      - name: Prepare provenance and license inventory
+        id: metadata
+        run: |
+          $version = ([xml](Get-Content app/FlowDesk.csproj -Raw)).Project.PropertyGroup.Version | Where-Object { $_ }
+          $out = "publication/$version"
+          ./tools/export-dependencies.ps1 -OutputDirectory $out
+          Copy-Item LICENSE,README.md,PRIVACY.md,THIRD_PARTY_NOTICES.md,CODE_SIGNING_POLICY.md -Destination $out
+          git archive --format=zip --output="$out/FlowDesk-source.zip" HEAD
+          if ($LASTEXITCODE) { throw 'Archive des sources impossible.' }
+          $info = (Get-Item "$out/FlowDesk.exe").VersionInfo
+          "directory=$out" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "file-version=$($info.FileVersion)" >> $env:GITHUB_OUTPUT
+          "product-version=$($info.ProductVersion)" >> $env:GITHUB_OUTPUT
+          @{ commit=$env:GITHUB_SHA; run="https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"; sdk=(dotnet --version) } |
+            ConvertTo-Json | Set-Content "$out/build-provenance.json" -Encoding utf8
+      - name: Upload unsigned build
+        id: unsigned
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: FlowDesk-unsigned-${{ github.run_id }}
+          path: ${{ steps.metadata.outputs.directory }}/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Submit for manual SignPath approval
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.sign }}
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1800
+          output-artifact-directory: publication/signed
+          parameters: |
+            file-version: ${{ toJSON(steps.metadata.outputs.file-version) }}
+            product-version: ${{ toJSON(steps.metadata.outputs.product-version) }}
+      - name: Verify signatures and recalculate hashes
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.sign }}
+        run: |
+          $exe = 'publication/signed/FlowDesk.exe'
+          $msi = 'publication/signed/FlowDesk-${{ steps.metadata.outputs.version }}-x64.msi'
+          foreach ($file in $exe,$msi) {
+            $signature = Get-AuthenticodeSignature -FilePath $file
+            if ($signature.Status -ne 'Valid' -or !$signature.TimeStamperCertificate) { throw "Signature/horodatage invalide : $file" }
+          }
+          ./.tools/wix.exe msi validate $msi
+          if ($LASTEXITCODE) { throw 'MSI signe invalide.' }
+          Get-FileHash $exe,$msi -Algorithm SHA256 | ForEach-Object {
+            '{0}  {1}' -f $_.Hash.ToLowerInvariant(), (Split-Path $_.Path -Leaf)
+          } | Set-Content publication/signed/SHA256SUMS.txt -Encoding ascii
+      - name: Upload signed build
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.sign }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: FlowDesk-signed-${{ github.run_id }}
+          path: publication/signed/
+          if-no-files-found: error
+          retention-days: 30
