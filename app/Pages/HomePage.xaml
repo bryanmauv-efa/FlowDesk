@@ -115,6 +115,28 @@
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
+
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button
+                                AutomationProperties.Name="Créer un raccourci sur le Bureau"
+                                Command="{x:Bind ViewModel.CreateDesktopShortcutCommand}"
+                                ToolTipService.ToolTip="Ouvrir directement cette connexion depuis le Bureau avec les réglages actuels">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="&#xE8A7;" />
+                                    <TextBlock Text="Créer un raccourci Bureau" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource TechnicalTextStyle}"
+                                Text="Un double-clic ouvrira le Bureau à distance avec ces réglages et ces écrans."
+                                TextWrapping="Wrap" />
+                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -259,12 +281,6 @@
                                     Grid.Row="2"
                                     Command="{x:Bind ViewModel.OpenSessionsFolderCommand}"
                                     Content="Dossier des sessions"
-                                    Style="{StaticResource CardActionButtonStyle}" />
-                                <Button
-                                    Grid.Row="2"
-                                    Grid.Column="1"
-                                    Command="{x:Bind ViewModel.CopyToDesktopCommand}"
-                                    Content="Copier le .rdp sur le Bureau"
                                     Style="{StaticResource CardActionButtonStyle}" />
                             </Grid>
                         </StackPanel>

@@ -768,8 +768,9 @@ public sealed partial class HomeViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task CopyToDesktopAsync()
+    private async Task CreateDesktopShortcutAsync()
     {
+        string? stagedFile = null;
         try
         {
             var selection = CurrentSelection;
@@ -778,19 +779,47 @@ public sealed partial class HomeViewModel : ObservableObject
 
             string content = RdpFile.Build(profile, selection, _monitorService.Monitors, _config);
             string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (string.IsNullOrWhiteSpace(desktop) || !Directory.Exists(desktop))
+                throw new IOException("Le dossier Bureau de cet utilisateur est introuvable.");
             string suffix = selection.Count > 1 ? $"{selection.Count} écrans" : "1 écran";
             string file = Path.Combine(desktop, $"{Paths.SafeFileName(profile.Name)} ({suffix}).rdp");
 
-            if (File.Exists(file) && !await DialogService.ConfirmAsync("Fichier existant",
+            bool replace = File.Exists(file);
+            if (replace && !await DialogService.ConfirmAsync("Fichier existant",
                     $"Le fichier existe déjà :\n{file}\n\nLe remplacer ?", "Remplacer")) return;
 
-            RdpFile.Write(file, content);
-            Log.Write($"Fichier bureau : {file}");
-            SetStatus("Raccourci créé", file);
+            // Signer une copie provisoire : un echec ne doit jamais alterer le raccourci existant.
+            // Meme dossier pour que la publication finale reste sur le meme volume (Bureau OneDrive compris).
+            stagedFile = Path.Combine(desktop, $".FlowDesk-{Guid.NewGuid():N}.rdp");
+            RdpFile.Write(stagedFile, content);
+            var signing = await RdpSigningService.SignAndValidateAsync(stagedFile);
+            if (!signing.Success)
+                throw new InvalidOperationException(signing.FailureReason ?? "La signature du fichier RDP a échoué.");
+            if (!RdpSigningService.IsUnchangedSince(stagedFile, signing.FileSha256AfterSigning))
+                throw new IOException("Le fichier RDP a changé après sa signature.");
+
+            File.Move(stagedFile, file, overwrite: replace);
+            stagedFile = null;
+            Log.Write($"Raccourci Bureau créé : {file}");
+            SetStatus("Raccourci Bureau créé", $"Double-cliquez sur {Path.GetFileName(file)} pour vous connecter.");
+            await DialogService.InfoAsync("Raccourci Bureau créé",
+                $"{file}\n\nUn double-clic ouvrira directement le Bureau à distance avec les réglages actuels. "
+                + "Windows pourra demander votre mot de passe.\n\n"
+                + "Si vous changez les réglages ou la disposition des écrans, recréez le raccourci.");
         }
         catch (Exception ex)
         {
-            await DialogService.InfoAsync("Bureau", $"Création impossible : {ex.Message}");
+            Log.Write($"Création du raccourci Bureau : {ex}");
+            SetStatus("Raccourci non créé", ex.Message, warning: true);
+            await DialogService.InfoAsync("Raccourci Bureau", $"Création impossible : {ex.Message}");
+        }
+        finally
+        {
+            if (stagedFile is not null)
+            {
+                try { File.Delete(stagedFile); }
+                catch (Exception ex) { Log.Write($"Nettoyage du fichier provisoire : {ex.Message}"); }
+            }
         }
     }
 }

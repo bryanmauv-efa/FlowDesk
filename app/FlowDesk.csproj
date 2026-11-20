@@ -34,7 +34,7 @@
     <Product>FlowDesk</Product>
     <AssemblyTitle>FlowDesk</AssemblyTitle>
     <Company>efa</Company>
-    <Version>1.0.10</Version>
+    <Version>1.0.11</Version>
 
     <!-- Le rognage casserait la reflexion utilisee par XAML : desactive volontairement. -->
     <PublishTrimmed>false</PublishTrimmed>
