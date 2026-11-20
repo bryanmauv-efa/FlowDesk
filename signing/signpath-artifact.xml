@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Configuration candidate : importer et valider avec SignPath avant activation. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="file-version" required="true" />
+    <parameter name="product-version" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="FlowDesk.exe" product-name="FlowDesk" company-name="efa"
+             file-version="${file-version}" product-version="${product-version}">
+      <authenticode-sign />
+    </pe-file>
+    <msi-file path="FlowDesk-*-x64.msi" author="efa">
+      <pe-file path="**/FlowDesk.exe" product-name="FlowDesk" company-name="efa"
+               file-version="${file-version}" product-version="${product-version}">
+        <authenticode-sign />
+      </pe-file>
+      <authenticode-sign />
+    </msi-file>
+  </zip-file>
+</artifact-configuration>

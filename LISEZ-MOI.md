@@ -1,5 +1,9 @@
 # FlowDesk — Bureau à distance multi-écrans
 
+Code original : [GPL-3.0-only](LICENSE), copyright (C) 2026 efa.
+Voir aussi la [Code signing policy](CODE_SIGNING_POLICY.md), la
+[politique de confidentialité](PRIVACY.md) et les [notices tierces](THIRD_PARTY_NOTICES.md).
+
 Ouvre une session Bureau à distance (`mstsc.exe`) sur **les écrans que vous choisissez** — un, deux,
 trois, ceux que vous voulez — sans jamais avoir à deviner quel numéro Windows a donné à quel écran.
 
