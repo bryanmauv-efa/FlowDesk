@@ -106,6 +106,7 @@ public sealed partial class ConnectionsViewModel : ObservableObject
         }
 
         var copy = source.Clone();
+        copy.Id = Guid.NewGuid();
         copy.Name = chosen.Trim();
         _config.Profiles.Add(copy);
         _config.Save();

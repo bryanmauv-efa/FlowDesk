@@ -777,35 +777,37 @@ public sealed partial class HomeViewModel : ObservableObject
             var profile = BuildEffectiveProfile();
             if (!await ValidateAsync(profile, selection)) return;
 
-            string content = RdpFile.Build(profile, selection, _monitorService.Monitors, _config);
+            string executable = DesktopShortcut.InstalledExecutable();
+            if (_config.Find(SelectedProfileName) is null)
+            {
+                await NewProfileAsync();
+                if (_config.Find(SelectedProfileName) is null) return;
+            }
+            profile = _config.Find(SelectedProfileName)!;
+            CollectInto(profile);
+            _config.LastProfile = profile.Name;
+            _config.Save(throwOnError: true);
+            AppServices.Connections.Reload();
             string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
             if (string.IsNullOrWhiteSpace(desktop) || !Directory.Exists(desktop))
                 throw new IOException("Le dossier Bureau de cet utilisateur est introuvable.");
-            string suffix = selection.Count > 1 ? $"{selection.Count} écrans" : "1 écran";
-            string file = Path.Combine(desktop, $"{Paths.SafeFileName(profile.Name)} ({suffix}).rdp");
+            string file = Path.Combine(desktop, $"FlowDesk - {Paths.SafeFileName(profile.Name)}.lnk");
 
             bool replace = File.Exists(file);
             if (replace && !await DialogService.ConfirmAsync("Fichier existant",
                     $"Le fichier existe déjà :\n{file}\n\nLe remplacer ?", "Remplacer")) return;
 
-            // Signer une copie provisoire : un echec ne doit jamais alterer le raccourci existant.
-            // Meme dossier pour que la publication finale reste sur le meme volume (Bureau OneDrive compris).
-            stagedFile = Path.Combine(desktop, $".FlowDesk-{Guid.NewGuid():N}.rdp");
-            RdpFile.Write(stagedFile, content);
-            var signing = await RdpSigningService.SignAndValidateAsync(stagedFile);
-            if (!signing.Success)
-                throw new InvalidOperationException(signing.FailureReason ?? "La signature du fichier RDP a échoué.");
-            if (!RdpSigningService.IsUnchangedSince(stagedFile, signing.FileSha256AfterSigning))
-                throw new IOException("Le fichier RDP a changé après sa signature.");
+            stagedFile = Path.Combine(desktop, $".FlowDesk-{Guid.NewGuid():N}.lnk");
+            DesktopShortcut.Write(stagedFile, executable, profile);
 
             File.Move(stagedFile, file, overwrite: replace);
             stagedFile = null;
             Log.Write($"Raccourci Bureau créé : {file}");
             SetStatus("Raccourci Bureau créé", $"Double-cliquez sur {Path.GetFileName(file)} pour vous connecter.");
             await DialogService.InfoAsync("Raccourci Bureau créé",
-                $"{file}\n\nUn double-clic ouvrira directement le Bureau à distance avec les réglages actuels. "
+                $"{file}\n\nUn double-clic lancera FlowDesk installé pour ouvrir cette connexion. "
                 + "Windows pourra demander votre mot de passe.\n\n"
-                + "Si vous changez les réglages ou la disposition des écrans, recréez le raccourci.");
+                + "Pour modifier les paramètres ou les écrans, ouvrez cette connexion dans FlowDesk puis cliquez sur Enregistrer. Le même raccourci utilisera ces changements.");
         }
         catch (Exception ex)
         {

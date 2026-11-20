@@ -67,6 +67,15 @@ public static class RdpCertificateService
 
     public static RdpCertificateInfo? Current { get; private set; }
 
+    // Read-only preflight for unattended setup: never trigger a certificate consent dialog.
+    public static bool HasTrustedCertificate()
+    {
+        var certificate = FindBest(out _);
+        return certificate is not null
+            && IsInStore(StoreName.Root, certificate.Sha1)
+            && IsInStore(StoreName.TrustedPublisher, certificate.Sha1);
+    }
+
     /// <summary>
     /// Renvoie le certificat de signature, en le créant seulement s'il n'en existe aucun
     /// d'exploitable. Idempotent : appels répétés = même certificat.

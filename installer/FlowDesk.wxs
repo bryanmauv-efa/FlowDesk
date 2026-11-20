@@ -3,10 +3,22 @@
            UpgradeCode="B68E759B-17D4-41E3-9D15-FA8B086987CF" Language="1036" Scope="perUser">
     <MajorUpgrade DowngradeErrorMessage="Une version plus recente de FlowDesk est deja installee." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
-    <Launch Condition="Installed OR WindowsBuild &gt;= 19041" Message="FlowDesk necessite Windows 10 version 2004 ou une version ulterieure." />
+    <!-- WindowsBuild can report a compatibility version on Windows 10/11. -->
+    <Property Id="WINDOWSBUILDNUMBER" Secure="yes">
+      <RegistrySearch Id="WindowsBuildNumberSearch" Root="HKLM"
+                      Key="SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+                      Name="CurrentBuildNumber" Type="raw" Bitness="always64" />
+    </Property>
+    <Launch Condition="Installed OR (WINDOWSBUILDNUMBER &gt;= 19041)" Message="FlowDesk nécessite Windows 10 version 2004 (build 19041) ou ultérieure, ou Windows 11." />
     <Icon Id="FlowDeskIcon" SourceFile="$(var.ProjectDir)\AppIcon.ico" />
     <Property Id="ARPPRODUCTICON" Value="FlowDeskIcon" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/bryanmauv-efa/FlowDesk" />
+    <CustomAction Id="InstallRdpCertificate" FileRef="FlowDeskExe"
+                  ExeCommand="--install-rdp-certificate --msi-ui-level [UILevel]"
+                  Execute="deferred" Impersonate="yes" Return="check" />
+    <InstallExecuteSequence>
+      <Custom Action="InstallRdpCertificate" Before="InstallFinalize" Condition="NOT (REMOVE ~= &quot;ALL&quot;)" />
+    </InstallExecuteSequence>
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="ProgramsFolder" Name="Programs">
         <Directory Id="INSTALLFOLDER" Name="FlowDesk">

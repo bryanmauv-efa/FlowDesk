@@ -124,7 +124,7 @@
                             <Button
                                 AutomationProperties.Name="Créer un raccourci sur le Bureau"
                                 Command="{x:Bind ViewModel.CreateDesktopShortcutCommand}"
-                                ToolTipService.ToolTip="Ouvrir directement cette connexion depuis le Bureau avec les réglages actuels">
+                                ToolTipService.ToolTip="Créer un raccourci vers FlowDesk installé et cette connexion enregistrée">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon FontSize="14" Glyph="&#xE8A7;" />
                                     <TextBlock Text="Créer un raccourci Bureau" />
@@ -134,7 +134,7 @@
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
                                 Style="{StaticResource TechnicalTextStyle}"
-                                Text="Un double-clic ouvrira le Bureau à distance avec ces réglages et ces écrans."
+                                Text="Les paramètres enregistrés dans FlowDesk seront repris à chaque ouverture."
                                 TextWrapping="Wrap" />
                         </Grid>
                     </StackPanel>

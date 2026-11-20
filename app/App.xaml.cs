@@ -14,6 +14,8 @@ public partial class App : Application
 
     public App()
     {
+        if (new CommandLine(Environment.GetCommandLineArgs()[1..]).Has("install-rdp-certificate"))
+            Environment.ExitCode = 1;
         // Le chargement de App.xaml peut échouer à lui seul (dictionnaire de ressources,
         // contrôle introuvable) : sans ce filet, l'application se fermerait sans un mot.
         StartupLog.Step("construction de l'application — chargement de App.xaml");
@@ -151,6 +153,11 @@ public partial class App : Application
     /// </summary>
     private void RunHeadless(CommandLine command)
     {
+        if (command.Has("install-rdp-certificate"))
+        {
+            _ = InstallRdpCertificateAsync(command);
+            return;
+        }
         var config = AppServices.Config;
         var monitors = AppServices.Monitors.Monitors;
 
@@ -208,11 +215,13 @@ public partial class App : Application
                 return;
             }
 
-            var profile = config.Find(command.Value("profile"))
-                          ?? config.Find(config.LastProfile)
-                          ?? config.Profiles.FirstOrDefault();
+            var profile = command.ResolveProfile(config);
             if (profile is null)
             {
+                if (command.Has("connect"))
+                    NativeMethods.MessageBox(0,
+                        "Cette connexion est introuvable. Ouvrez FlowDesk pour vérifier vos connexions et créer un nouveau raccourci.",
+                        "FlowDesk — connexion introuvable", NativeMethods.MB_ICONERROR);
                 WriteText(command, "erreur.txt",
                     "Aucune connexion enregistrée : lancez l'application sans paramètre pour en créer une."
                     + Environment.NewLine + Environment.NewLine + CommandLine.Usage);
@@ -248,6 +257,13 @@ public partial class App : Application
             WriteText(command, "erreur.txt", ex.ToString());
         }
 
+        Exit();
+    }
+
+    private async Task InstallRdpCertificateAsync(CommandLine command)
+    {
+        bool interactive = command.Number("msi-ui-level", 2) > 2;
+        Environment.ExitCode = await RdpInstaller.RunAsync(interactive);
         Exit();
     }
 

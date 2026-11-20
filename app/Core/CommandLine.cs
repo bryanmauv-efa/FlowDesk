@@ -35,13 +35,19 @@ public sealed class CommandLine
 
     public string? Value(string name) => _values.TryGetValue(name, out var value) ? value : null;
 
+    public Profile? ResolveProfile(AppConfig config) => Has("profile-id")
+        ? (Guid.TryParse(Value("profile-id"), out var id)
+            ? config.Profiles.FirstOrDefault(p => p.Id == id) : null)
+        : Has("profile") ? config.Find(Value("profile"))
+        : config.Find(config.LastProfile) ?? config.Profiles.FirstOrDefault();
+
     public double Number(string name, double fallback) =>
         double.TryParse(Value(name), NumberStyles.Float, CultureInfo.InvariantCulture, out double value) && value > 0
             ? value : fallback;
 
     /// <summary>Vrai si la ligne de commande demande une action sans interface.</summary>
     public bool IsHeadless =>
-        Has("connect") || Has("identify") || Has("list") || Has("print") || Has("rdptrust") || Has("resign") || Has("maptest") || Has("mapdemo");
+        Has("connect") || Has("identify") || Has("list") || Has("print") || Has("rdptrust") || Has("resign") || Has("maptest") || Has("mapdemo") || Has("install-rdp-certificate");
 
     public static string Usage =>
         """
@@ -51,6 +57,7 @@ public sealed class CommandLine
         Sans paramètre : ouvre la fenêtre de l'application.
 
           --profile "<nom>"   choisit une connexion enregistrée
+          --profile-id <id>   choisit une connexion par son identifiant permanent
           --connect           lance la session immédiatement
           --screens 1,2       écrans à utiliser, numérotés de gauche à droite
           --all               tous les écrans

@@ -8,22 +8,24 @@ et contrôles du Windows Community Toolkit.
 
 ---
 
-## Release 1.0.11 : portable et installation MSI
+## Release 1.0.13 : portable et installation MSI
 
 L'executable portable peut etre renomme, y compris avec des espaces ou des parentheses. Les ressources XAML utilisent un nom fixe independant de celui de l'EXE.
 
 Les donnees et journaux utilisent maintenant le dossier FlowDesk. L'ancien dossier est migre automatiquement au premier lancement ; si les deux dossiers existent deja, les reglages FlowDesk sont prioritaires et seuls les fichiers manquants sont repris.
 
-La compilation produit dans `publication\1.0.11` :
+La compilation produit dans `publication\1.0.13` :
 
 - `FlowDesk.exe` : executable portable autonome, Windows x64.
-- `FlowDesk-1.0.11-x64.msi` : installation pour l'utilisateur courant dans `%LOCALAPPDATA%\Programs\FlowDesk`, avec raccourcis Bureau et menu Demarrer et desinstallation dans les applications Windows.
+- `FlowDesk-1.0.13-x64.msi` : installation pour l'utilisateur courant dans `%LOCALAPPDATA%\Programs\FlowDesk`, avec raccourcis Bureau et menu Demarrer et desinstallation dans les applications Windows.
 - `SHA256SUMS.txt` : empreintes SHA-256 des deux fichiers.
 
-Double-cliquez sur le MSI pour installer. Pour un deploiement silencieux :
+Le MSI prépare le certificat RDP du compte utilisateur, vérifie la signature et configure son éditeur approuvé pendant l'installation. Acceptez les confirmations Windows et l'autorisation administrateur si elles sont demandées. Les mises à jour réutilisent le certificat ; la désinstallation le conserve pour les connexions déjà signées. Si cette étape échoue ou est refusée, le MSI signale un échec (journal : `%LOCALAPPDATA%\FlowDesk\journal.log`). Les certificats déjà créés sont conservés même en cas d'annulation et réutilisés à la prochaine tentative.
+
+Double-cliquez sur le MSI pour la première installation. Le mode silencieux ne demande aucune autorisation interactive : le certificat doit déjà être préconfiguré pour ce même compte utilisateur, sinon le MSI échoue. Pour les mises à jour silencieuses :
 
 ```powershell
-msiexec /i FlowDesk-1.0.11-x64.msi /qn /norestart
+msiexec /i FlowDesk-1.0.13-x64.msi /qn /norestart
 ```
 
 Les futures versions MSI remplacent la precedente ; les versions plus anciennes sont refusees. Les connexions et reglages dans `%LOCALAPPDATA%\FlowDesk` sont conserves a la desinstallation. Depuis une installation MSI, la notification de mise a jour ouvre la page des releases pour recuperer le nouvel installateur.
@@ -38,7 +40,7 @@ Si `private_key.xml` est disponible a la racine, la compilation cree aussi `Flow
 compilation.bat
 ```
 
-L'exécutable est produit dans `publication\1.0.11\FlowDesk.exe`. C'est **un seul fichier** autonome (environ 87 Mo). Copiez-le où vous voulez, sur n'importe quel poste Windows 10 (2004+) ou 11 en 64 bits, et double-cliquez.
+L'exécutable est produit dans `publication\1.0.13\FlowDesk.exe`. C'est **un seul fichier** autonome (environ 87 Mo). Copiez-le où vous voulez, sur n'importe quel poste Windows 10 (2004+) ou 11 en 64 bits, et double-cliquez.
 
 **Aucun prérequis** : .NET 10, le Windows App SDK, WinUI, l'icône et les XAML compilés sont tous embarqués dans l'exécutable.
 
@@ -92,8 +94,7 @@ montre exactement ce qui sera envoyé.
   défaut, redirections…), le mot de passe enregistré ne l'est jamais.
 - **Détection à chaud** : brancher, débrancher ou réorganiser un écran met la liste à jour sans
   redémarrer l'application.
-- **Créer un raccourci Bureau** : produit un fichier double-cliquable qui ouvre directement la
-  session sur les écrans choisis, sans passer par l'application. Le bouton est visible dans le bloc Connexion de l'accueil. Il reprend les réglages affichés, même non enregistrés, et signe le fichier RDP. Un remplacement demande confirmation. Recréez le raccourci après un changement de réglages ou de disposition des écrans.
+- **Créer un raccourci Bureau** : enregistre les paramètres affichés et crée un raccourci Windows `.lnk` vers FlowDesk installé par MSI (1.0.12 minimum). Chaque ouverture relit les paramètres et les écrans enregistrés. Modifiez la connexion dans FlowDesk puis cliquez sur **Enregistrer** : le même raccourci reprend les changements. Une connexion supprimée provoque une erreur sans ouvrir une autre session. Remplacez une fois les anciens fichiers `.rdp` du Bureau par ce nouveau raccourci.
 - **Diagnostic** et **journal** : tout lancement est tracé, avec les trois numérotations.
 
 Les mots de passe ne sont ni demandés, ni affichés, ni enregistrés : c'est Windows qui s'en charge.

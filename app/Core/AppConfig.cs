@@ -26,6 +26,7 @@ public enum AppTheme { Clair, Sombre, Systeme }
 /// <summary>Une connexion enregistrée.</summary>
 public sealed class Profile
 {
+    public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "";
     public string Address { get; set; } = "";
     public string UserName { get; set; } = "";
@@ -46,6 +47,7 @@ public sealed class Profile
 
     public Profile Clone() => new()
     {
+        Id = Id,
         Name = Name,
         Address = Address,
         UserName = UserName,
@@ -126,7 +128,7 @@ public sealed class AppConfig
         return new AppConfig();
     }
 
-    public void Save()
+    public void Save(bool throwOnError = false)
     {
         try
         {
@@ -139,6 +141,7 @@ public sealed class AppConfig
         catch (Exception ex)
         {
             Log.Write($"Échec d'enregistrement de la configuration : {ex.Message}");
+            if (throwOnError) throw;
         }
     }
 
