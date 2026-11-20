@@ -2,7 +2,7 @@ name: Windows build
 
 on:
   push:
-    branches: [main, prepare-signpath]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
